@@ -49,8 +49,11 @@ public class EventManager implements PostUpdateSubscriber {
         // 设置热键回调
         keyInputListener.setCallbacks(
             () -> {
-                // F4: 切换面板
-                STSAIAdvisorMod.getPanel().toggle();
+                // F4: 切换 Overlay 显示/隐藏
+                if (STSAIAdvisorMod.isOverlayMode()) {
+                    // 通过 HTTP 控制 Overlay
+                    // TODO: 实现 toggle 功能
+                }
             },
             () -> {
                 // F3: 根据当前场景请求建议
@@ -58,8 +61,6 @@ public class EventManager implements PostUpdateSubscriber {
                     battleEventListener.requestManualAdvice();
                 } else if (rewardEventListener.isInCardReward()) {
                     rewardEventListener.requestManualAdvice();
-                } else {
-                    STSAIAdvisorMod.getPanel().setStatusMessage("不在战斗或奖励界面");
                 }
             }
         );

@@ -1,0 +1,226 @@
+/**
+ * Overlay 样式表
+ *
+ * 设计原则：
+ * 1. 透明背景，融入游戏画面
+ * 2. 高对比度文字，确保可读性
+ * 3. 简洁现代的视觉效果
+ */
+
+/* ============================================================
+   基础重置
+   ============================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 透明背景：body 完全透明 */
+body {
+    background: transparent;
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'SimHei', 'Segoe UI', sans-serif;
+    -webkit-user-select: none;  /* 禁止文字选中 */
+    overflow: hidden;
+}
+
+/* ============================================================
+   面板容器
+   ============================================================ */
+
+.panel {
+    /* 半透明深色背景 */
+    background: rgba(20, 22, 30, 0.92);
+
+    /* 圆角边框 */
+    border-radius: 8px;
+    border: 1px solid rgba(100, 120, 150, 0.6);
+
+    /* 阴影效果 */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+
+    /* 完整高度 */
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ============================================================
+   标题栏
+   ============================================================ */
+
+.panel-header {
+    /* 标题栏背景：稍亮的蓝色 */
+    background: rgba(60, 80, 100, 0.8);
+    border-radius: 8px 8px 0 0;
+    padding: 8px 12px;
+
+    /* Flex 布局 */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    /* 可拖拽 */
+    cursor: move;
+    -webkit-app-region: drag;
+}
+
+.panel-header .title {
+    color: #8ecae6;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.header-actions {
+    -webkit-app-region: no-drag;  /* 按钮区域可点击 */
+}
+
+.btn-minimize {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.7);
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.btn-minimize:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* ============================================================
+   内容区域
+   ============================================================ */
+
+.panel-content {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+
+    /* 滚动条样式 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 120, 150, 0.5) transparent;
+}
+
+.panel-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+    background: rgba(100, 120, 150, 0.5);
+    border-radius: 3px;
+}
+
+/* ============================================================
+   内容元素样式
+   ============================================================ */
+
+/* 状态消息 */
+.status-message {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* 加载动画 */
+.loading-message {
+    color: #ffd700;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* 鼓励消息（金色标题） */
+.companion-message {
+    color: #ffd700;
+    font-size: 14px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+/* 策略说明 */
+.reasoning {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+/* 分隔线 */
+.divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 10px 0;
+}
+
+/* 小节标题 */
+.section-title {
+    color: #ffd700;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+/* 建议列表 */
+.suggestion {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 6px;
+    padding: 4px 0;
+}
+
+/* 推荐卡牌（绿色） */
+.suggestion.recommended {
+    color: #7fff7f;
+}
+
+/* 备选卡牌（浅蓝） */
+.suggestion.alternate {
+    color: #a8d8ff;
+}
+
+/* 战斗建议（白色） */
+.suggestion.battle {
+    color: white;
+}
+
+/* 箭头符号 */
+.suggestion .arrow {
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0 4px;
+}
+
+/* 理由文字 */
+.suggestion .reason {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* ============================================================
+   动画效果
+   ============================================================ */
+
+/* 淡入动画 */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.panel-content > * {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* 加载点动画 */
+@keyframes loadingDots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}

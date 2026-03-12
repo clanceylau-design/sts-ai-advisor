@@ -69,9 +69,9 @@ public class AdvisorAgent implements Agent<AdvisorRequest, FinalRecommendation> 
 
     // ========== Battle场景正则 ==========
 
-    /** 解析出牌建议：[0] 卡牌名 -> 目标：理由 */
+    /** 解析出牌建议：[0] 卡牌名 -> 目标（：理由可选） */
     private static final Pattern SUGGESTION_PATTERN =
-        Pattern.compile("\\[(\\d+)\\]\\s*(.+?)\\s*->\\s*(.+?)\\s*[：:]\\s*(.+)");
+        Pattern.compile("\\[(\\d+)\\]\\s*(.+?)\\s*->\\s*(.+?)(?:\\s*[：:]\\s*(.+))?\\s*$");
 
     // ========== Reward场景正则 ==========
 
@@ -273,7 +273,9 @@ public class AdvisorAgent implements Agent<AdvisorRequest, FinalRecommendation> 
                 suggestion.setTargetName(targetName);
                 suggestion.setTargetIndex(resolveTargetIndex(targetName, enemyNameToIndex));
 
-                suggestion.setReason(matcher.group(4).trim());
+                // 理由可选，可能为null
+                String reason = matcher.group(4);
+                suggestion.setReason(reason != null ? reason.trim() : "");
                 suggestion.setPriority(priority++);
                 suggestions.add(suggestion);
                 continue;

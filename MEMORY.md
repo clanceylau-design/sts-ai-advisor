@@ -7,28 +7,23 @@
 
 ### 关键路径
 
-#### 游戏安装目录
-- **游戏根目录**: `D:\SteamLibrary\steamapps\common\SlayTheSpire`
-- **Mod目录**: `D:\SteamLibrary\steamapps\common\SlayTheSpire\mods`
-- **创意工坊目录**: `D:\SteamLibrary\steamapps\workshop\content\646570`
+> **本地机器路径配置**: 请查看 `MEMORY.LOCAL.md` (此文件不提交到 Git)
 
-#### 项目目录
-- **项目根目录**: `C:\Users\Ali\sts-ai-advisor`
-- **源代码**: `C:\Users\Ali\sts-ai-advisor\src\main\java\com\stsaiadvisor\`
-- **配置文件**: `D:\SteamLibrary\steamapps\common\SlayTheSpire\mods\sts-ai-advisor\config.json`
-- **日志文件**: `D:\SteamLibrary\steamapps\common\SlayTheSpire\mods\sts-ai-advisor\logs\llm_requests.log`
-- **Skills目录**: `D:\SteamLibrary\steamapps\common\SlayTheSpire\mods\sts-ai-advisor\skills\`
+#### 项目结构
+- **源代码**: `src/main/java/com/stsaiadvisor/`
+- **配置文件**: `{游戏目录}/mods/sts-ai-advisor/config.json`
+- **日志文件**: `{游戏目录}/mods/sts-ai-advisor/logs/llm_requests.log`
+- **Skills目录**: `{游戏目录}/mods/sts-ai-advisor/skills/`
 - **GitHub仓库**: https://github.com/clanceylau-design/sts-ai-advisor
 
 ### 构建与部署
 
 ```bash
 # 构建
-cd C:/Users/Ali/sts-ai-advisor
-./gradlew clean jar
+./gradlew clean build
 
-# 部署
-cp build/libs/sts-ai-advisor.jar D:/SteamLibrary/steamapps/common/SlayTheSpire/mods/sts-ai-advisor.jar
+# 部署 - 将 JAR 复制到游戏的 mods 目录
+cp build/libs/sts-ai-advisor.jar {游戏目录}/mods/sts-ai-advisor.jar
 ```
 
 ### 重要技术细节
@@ -89,17 +84,32 @@ cp build/libs/sts-ai-advisor.jar D:/SteamLibrary/steamapps/common/SlayTheSpire/m
 
 ### 待办事项
 
-1. **深度优化提示面板文字排版**
+1. **[Bug] Overlay 缓存问题**
+   - Overlay 重新打开时保留了上次关闭时的缓存数据
+   - 重启 Mod/游戏时需要重新刷新显示内容
+
+2. **[Bug] Overlay 热键问题**
+   - Overlay 的显示/隐藏热键不生效
+   - 点击关闭 icon 后没有热键能重新启动 Overlay
+
+3. **[Bug] 能量点获取不正确**
+   - 当回合内消耗了能量并重新触发分析时
+   - AnalysisAgent 读取到的能量依然是满的
+
+4. **[功能] 回合内抽卡事件响应**
+   - 回合内发生抽卡事件需要再次提交自动分析
+
+5. **深度优化提示面板文字排版**
    - 优化中英文混排显示
    - 增强视觉层次（标题/正文/强调）
    - 优化滚动体验
 
-2. **优化奖励skills策略和配置便捷性**
+6. **优化奖励skills策略和配置便捷性**
    - 完善各角色选牌优先级skill文件
    - 支持用户自定义skill文件路径
    - 添加skill热重载功能
 
-3. **优化LLM调用速度，考虑流式输出**
+7. **优化LLM调用速度，考虑流式输出**
    - 实现SSE流式响应解析
    - 边生成边显示，提升用户体验
    - 考虑并行调用优化

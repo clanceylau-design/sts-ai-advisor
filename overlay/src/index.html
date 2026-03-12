@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Advisor Overlay</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!--
+        面板结构说明：
+        - .panel: 主容器，透明背景
+        - .panel-header: 标题栏，可拖拽
+        - .panel-content: 内容区域，显示推荐信息
+    -->
+
+    <div class="panel" id="panel">
+        <!-- 标题栏：拖拽区域 -->
+        <div class="panel-header" id="panelHeader">
+            <span class="title">AI Advisor</span>
+            <div class="header-actions">
+                <button class="btn-minimize" id="btnMinimize" title="隐藏">−</button>
+            </div>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="panel-content" id="panelContent">
+            <div class="status-message">等待游戏数据...</div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

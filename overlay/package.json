@@ -1,0 +1,29 @@
+{
+  "name": "sts-ai-advisor-overlay",
+  "version": "1.0.0",
+  "description": "STS AI Advisor Overlay - 独立悬浮面板",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable",
+    "build-dir": "electron-builder --win --dir"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.stsaiadvisor.overlay",
+    "productName": "STS AI Advisor Overlay",
+    "win": {
+      "target": "portable"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ]
+  }
+}

@@ -69,8 +69,7 @@ public class RewardEventListener implements PostUpdateSubscriber {
         if (inReward && !wasInReward) {
             System.out.println("[RewardEventListener] Entered card reward screen");
             hasRequestedCurrentReward = false;
-            STSAIAdvisorMod.getPanel().setStatusMessage("检测到卡牌奖励...");
-            STSAIAdvisorMod.getPanel().setVisible(true);
+            // Overlay 始终保持显示，不需要手动 show
         }
 
         // 检测离开奖励界面
@@ -79,6 +78,11 @@ public class RewardEventListener implements PostUpdateSubscriber {
             hasRequestedCurrentReward = false;
             // 清理待处理请求
             pendingRequest = null;
+
+            // 清空 Overlay 内容（不隐藏窗口）
+            if (STSAIAdvisorMod.isOverlayMode()) {
+                STSAIAdvisorMod.getOverlayClient().clear();
+            }
         }
 
         // 在奖励界面且未请求过，自动请求分析
@@ -96,7 +100,7 @@ public class RewardEventListener implements PostUpdateSubscriber {
      */
     public void requestManualAdvice() {
         if (!rewardCapture.isInCardReward()) {
-            STSAIAdvisorMod.getPanel().setStatusMessage("不在卡牌奖励界面");
+            System.out.println("[RewardEventListener] Not in card reward screen");
             return;
         }
         requestRewardAdvice();
@@ -115,7 +119,7 @@ public class RewardEventListener implements PostUpdateSubscriber {
         // 捕获场景上下文
         SceneContext context = rewardCapture.capture();
         if (context == null) {
-            STSAIAdvisorMod.getPanel().setStatusMessage("无法获取奖励信息");
+            System.out.println("[RewardEventListener] Failed to capture context");
             return;
         }
 
@@ -125,27 +129,31 @@ public class RewardEventListener implements PostUpdateSubscriber {
             context.getSceneData("rewardCards");
         if (rewardCards == null || rewardCards.isEmpty()) {
             System.out.println("[RewardEventListener] No reward cards available");
-            STSAIAdvisorMod.getPanel().setStatusMessage("无可选卡牌");
             return;
         }
 
         System.out.println("[RewardEventListener] Requesting advice for " + rewardCards.size() + " cards");
-        STSAIAdvisorMod.getPanel().setLoading(true);
+
+        // 推送 loading 状态到 Overlay
+        if (STSAIAdvisorMod.isOverlayMode()) {
+            STSAIAdvisorMod.getOverlayClient().loading("分析中...");
+        }
 
         // 发起异步请求
         pendingRequest = orchestrator.processAsync(context);
         pendingRequest.thenAccept(rec -> {
             if (rec != null) {
                 System.out.println("[RewardEventListener] Got recommendation");
-                // 设置场景类型并更新面板
-                STSAIAdvisorMod.getPanel().setScenario("reward");
-                STSAIAdvisorMod.getPanel().updateRecommendation(rec.toRecommendation());
+
+                // 推送到 Overlay
+                if (STSAIAdvisorMod.isOverlayMode()) {
+                    STSAIAdvisorMod.getOverlayClient().update(rec.toRecommendation(), "reward");
+                }
             } else {
-                STSAIAdvisorMod.getPanel().setStatusMessage("无建议返回");
+                System.out.println("[RewardEventListener] No recommendation returned");
             }
         }).exceptionally(e -> {
             System.err.println("[RewardEventListener] Error: " + e.getMessage());
-            STSAIAdvisorMod.getPanel().setStatusMessage("分析出错: " + e.getMessage());
             return null;
         });
     }

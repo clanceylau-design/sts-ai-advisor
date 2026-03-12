@@ -73,21 +73,17 @@ public class ModelTest {
 
     @Test
     public void testRecommendationParsing() {
-        String json = """
-            {
-              "suggestions": [
-                {
-                  "cardIndex": 0,
-                  "targetIndex": 0,
-                  "cardName": "Strike",
-                  "priority": 1,
-                  "reason": "Basic attack"
-                }
-              ],
-              "reasoning": "Start with a basic attack",
-              "companionMessage": "Let's do this!"
-            }
-            """;
+        String json = "{" +
+            "\"suggestions\": [{" +
+            "\"cardIndex\": 0," +
+            "\"targetIndex\": 0," +
+            "\"cardName\": \"Strike\"," +
+            "\"priority\": 1," +
+            "\"reason\": \"Basic attack\"" +
+            "}]," +
+            "\"reasoning\": \"Start with a basic attack\"," +
+            "\"companionMessage\": \"Let's do this!\"" +
+            "}";
 
         Recommendation rec = GSON.fromJson(json, Recommendation.class);
         assertNotNull(rec);
@@ -108,6 +104,6 @@ public class ModelTest {
         intent.setDamage(12);
         intent.setMultiplier(2);
 
-        assertEquals("Attack 12 x2", intent.getDescription());
+        assertEquals("攻击 12 x2", intent.getDescription());
     }
 }

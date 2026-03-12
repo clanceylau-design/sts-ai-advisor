@@ -65,8 +65,7 @@ public class BattleEventListener implements
         lastAnalysisTurn = -1;
         lastDrawTime = 0;
         waitingForDrawComplete = false;
-        STSAIAdvisorMod.getPanel().setStatusMessage("战斗开始！");
-        STSAIAdvisorMod.getPanel().setVisible(true);
+        // Overlay 始终保持显示，不需要手动 show
     }
 
     @Override
@@ -75,7 +74,11 @@ public class BattleEventListener implements
         lastAnalysisTurn = -1;
         pendingRequest = null;
         waitingForDrawComplete = false;
-        STSAIAdvisorMod.getPanel().clear();
+
+        // 清空 Overlay 内容（不隐藏窗口）
+        if (STSAIAdvisorMod.isOverlayMode()) {
+            STSAIAdvisorMod.getOverlayClient().clear();
+        }
     }
 
     @Override
@@ -120,7 +123,7 @@ public class BattleEventListener implements
      */
     public void requestManualAdvice() {
         if (!stateCapture.isInBattle()) {
-            STSAIAdvisorMod.getPanel().setStatusMessage("不在战斗中！");
+            System.out.println("[BattleEventListener] Not in battle");
             return;
         }
         requestAnalysis();
@@ -138,32 +141,36 @@ public class BattleEventListener implements
         // 使用新的SceneContext
         SceneContext context = stateCapture.captureSceneContext();
         if (context == null) {
-            STSAIAdvisorMod.getPanel().setStatusMessage("无法获取战斗状态");
+            System.out.println("[BattleEventListener] Failed to capture context");
             return;
         }
 
         if (context.getHand() == null || context.getHand().isEmpty()) {
             System.out.println("[BattleEventListener] No cards in hand");
-            STSAIAdvisorMod.getPanel().setStatusMessage("等待抽牌...");
             return;
         }
 
         System.out.println("[BattleEventListener] Requesting analysis with " + context.getHand().size() + " cards");
-        STSAIAdvisorMod.getPanel().setLoading(true);
+
+        // 推送 loading 状态到 Overlay
+        if (STSAIAdvisorMod.isOverlayMode()) {
+            STSAIAdvisorMod.getOverlayClient().loading("分析中...");
+        }
 
         pendingRequest = orchestrator.processAsync(context);
         pendingRequest.thenAccept(rec -> {
             if (rec != null) {
                 System.out.println("[BattleEventListener] Got recommendation");
-                // 设置场景类型并更新面板
-                STSAIAdvisorMod.getPanel().setScenario("battle");
-                STSAIAdvisorMod.getPanel().updateRecommendation(rec.toRecommendation());
+
+                // 推送到 Overlay
+                if (STSAIAdvisorMod.isOverlayMode()) {
+                    STSAIAdvisorMod.getOverlayClient().update(rec.toRecommendation(), "battle");
+                }
             } else {
-                STSAIAdvisorMod.getPanel().setStatusMessage("无响应");
+                System.out.println("[BattleEventListener] No recommendation returned");
             }
         }).exceptionally(e -> {
             System.err.println("[BattleEventListener] Error: " + e.getMessage());
-            STSAIAdvisorMod.getPanel().setStatusMessage("分析出错: " + e.getMessage());
             return null;
         });
     }

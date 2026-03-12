@@ -24,3 +24,9 @@ libs/StSLib.jar
 
 # Ignore user config
 config.json
+
+# Ignore local memory (machine-specific paths)
+MEMORY.LOCAL.md
+
+# Ignore Electron node_modules
+overlay/node_modules/

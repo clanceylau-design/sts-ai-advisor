@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STS AI Advisor - Panel Preview</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            min-height: 100vh;
+        }
+
+        /* 左侧：控制面板 */
+        .controls {
+            width: 400px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            background: #252540;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            color: #8ecae6;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: #1a1a2e;
+            border: 1px solid #3a3a5a;
+            color: #eee;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #8ecae6;
+        }
+
+        .param-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .param-row label {
+            width: 120px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .param-row input[type="number"] {
+            width: 80px;
+            background: #1a1a2e;
+            border: 1px solid #3a3a5a;
+            color: #eee;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .param-row input[type="color"] {
+            width: 50px;
+            height: 25px;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .param-row input[type="range"] {
+            flex: 1;
+        }
+
+        .btn {
+            background: #8ecae6;
+            color: #1a1a2e;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .btn:hover {
+            background: #a8d8ea;
+        }
+
+        .btn-secondary {
+            background: #3a3a5a;
+            color: #eee;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4a6a;
+        }
+
+        /* 右侧：预览区域 */
+        .preview-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 50px;
+        }
+
+        .preview-title {
+            color: #8ecae6;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        /* 模拟游戏背景 */
+        .game-bg {
+            width: 100%;
+            max-width: 1920px;
+            height: 1080px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* Recommendation Panel */
+        .panel {
+            position: absolute;
+            top: var(--panel-top);
+            right: var(--panel-right);
+            width: var(--panel-width);
+            min-height: var(--panel-height);
+            background: var(--bg-color);
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            font-family: 'Microsoft YaHei', sans-serif;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .panel-header {
+            background: var(--header-bg);
+            padding: var(--padding);
+            border-bottom: 1px solid var(--border-color);
+            cursor: move;
+            user-select: none;
+        }
+
+        .panel-header h2 {
+            margin: 0;
+            font-size: var(--font-size);
+            color: var(--title-color);
+            font-weight: normal;
+        }
+
+        .panel-content {
+            padding: var(--padding);
+            max-height: calc(var(--panel-height) - 60px);
+            overflow-y: auto;
+        }
+
+        .panel-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .panel-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .panel-content::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .loading {
+            color: yellow;
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+        }
+
+        .companion-message {
+            color: var(--gold-color);
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            margin-bottom: calc(var(--line-height) * 0.5);
+        }
+
+        .reasoning {
+            color: #ccc;
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            margin-bottom: calc(var(--line-height) * 0.5);
+            white-space: pre-wrap;
+        }
+
+        .section-title {
+            color: var(--gold-color);
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            margin-bottom: calc(var(--line-height) * 0.25);
+        }
+
+        .suggestion {
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            margin-bottom: 2px;
+        }
+
+        .suggestion.recommended {
+            color: var(--green-color);
+        }
+
+        .suggestion.alternate {
+            color: var(--light-blue-color);
+        }
+
+        .suggestion.battle {
+            color: white;
+        }
+
+        .status {
+            color: #aaa;
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+        }
+
+        /* 样例按钮 */
+        .samples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .samples button {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+
+        /* 导出 CSS 变量 */
+        .export-section {
+            margin-top: 10px;
+        }
+
+        .export-section pre {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            overflow-x: auto;
+            max-height: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div class="control-group">
+            <h3>Response JSON</h3>
+            <textarea id="jsonInput" placeholder='粘贴 Recommendation JSON...'></textarea>
+            <div class="samples">
+                <button class="btn btn-secondary" onclick="loadSample('battle')">Battle 样例</button>
+                <button class="btn btn-secondary" onclick="loadSample('reward')">Reward 样例</button>
+                <button class="btn btn-secondary" onclick="loadSample('loading')">Loading 样例</button>
+                <button class="btn btn-secondary" onclick="loadSample('error')">Error 样例</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>面板参数</h3>
+            <div class="param-row">
+                <label>面板宽度 (px)</label>
+                <input type="number" id="panelWidth" value="320" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>面板高度 (px)</label>
+                <input type="number" id="panelHeight" value="350" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>字体大小 (px)</label>
+                <input type="number" id="fontSize" value="18" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>行高 (px)</label>
+                <input type="number" id="lineHeight" value="38" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>内边距 (px)</label>
+                <input type="number" id="padding" value="10" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>每行字符数</label>
+                <input type="number" id="charsPerLine" value="25" onchange="updatePreview()">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>颜色配置</h3>
+            <div class="param-row">
+                <label>背景色</label>
+                <input type="color" id="bgColor" value="#1a1a26" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>边框色</label>
+                <input type="color" id="borderColor" value="#667799" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>标题栏背景</label>
+                <input type="color" id="headerBg" value="#4d5a6b" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>标题文字</label>
+                <input type="color" id="titleColor" value="#7fccee" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>金色（标题行）</label>
+                <input type="color" id="goldColor" value="#ffd700" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>绿色（推荐）</label>
+                <input type="color" id="greenColor" value="#4dff4d" onchange="updatePreview()">
+            </div>
+            <div class="param-row">
+                <label>浅蓝（备选）</label>
+                <input type="color" id="lightBlueColor" value="#b3e6ff" onchange="updatePreview()">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>场景类型</h3>
+            <div class="param-row">
+                <button class="btn" onclick="setScenario('battle')">Battle</button>
+                <button class="btn btn-secondary" onclick="setScenario('reward')">Reward</button>
+            </div>
+        </div>
+
+        <div class="control-group export-section">
+            <h3>导出 Java 参数</h3>
+            <button class="btn" onclick="exportJavaParams()">复制到剪贴板</button>
+            <pre id="exportOutput"></pre>
+        </div>
+    </div>
+
+    <div class="preview-container">
+        <div class="preview-title">预览效果 (可拖拽面板)</div>
+        <div class="game-bg" id="gameBg">
+            <div class="panel" id="panel">
+                <div class="panel-header" id="panelHeader">
+                    <h2>AI Advisor</h2>
+                </div>
+                <div class="panel-content" id="panelContent">
+                    <div class="status">等待输入 JSON...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 样例数据
+        const samples = {
+            battle: {
+                companionMessage: "开局不错，稳扎稳打！",
+                reasoning: "当前手牌能量效率较高，建议先使用Bash给敌人挂上易伤debuff，然后使用Strike输出。注意保留1点能量应对下回合。",
+                suggestions: [
+                    { cardIndex: 1, cardName: "Bash", targetName: "Cultist", priority: 1, reason: "挂易伤增伤50%" },
+                    { cardIndex: 0, cardName: "Strike", targetName: "Cultist", priority: 2, reason: "配合易伤打出高伤" },
+                    { cardIndex: 2, cardName: "Defend", targetName: "-", priority: 3, reason: "防御下回合攻击" }
+                ]
+            },
+            reward: {
+                companionMessage: "这几张都不错，看你的流派了",
+                reasoning: "牌组目前偏攻击型，建议补充防御能力。耸肩无视可以过牌，金属化提供持续格挡。",
+                suggestions: [
+                    { cardIndex: 0, cardName: "耸肩无视", priority: 1, reason: "过牌+格挡，很实用" },
+                    { cardIndex: 2, cardName: "金属化", priority: 2, reason: "持续格挡，适合长战" },
+                    { cardIndex: 1, cardName: "死亡收割", priority: 3, reason: "AOE伤害+回血，但费用高" }
+                ]
+            },
+            loading: {
+                _loading: true
+            },
+            error: {
+                _error: "API请求失败: 404"
+            }
+        };
+
+        let currentScenario = 'battle';
+
+        function loadSample(name) {
+            const input = document.getElementById('jsonInput');
+            input.value = JSON.stringify(samples[name], null, 2);
+            updatePreview();
+        }
+
+        function setScenario(scenario) {
+            currentScenario = scenario;
+            updatePreview();
+        }
+
+        function wrapText(text, maxChars) {
+            if (!text) return [];
+            const lines = [];
+            const paragraphs = text.split('\n');
+
+            for (const para of paragraphs) {
+                if (!para) {
+                    lines.push('');
+                    continue;
+                }
+
+                let currentLine = '';
+                let charCount = 0;
+
+                for (const c of para) {
+                    currentLine += c;
+                    charCount += c.charCodeAt(0) > 127 ? 2 : 1;
+
+                    if (charCount >= maxChars) {
+                        lines.push(currentLine);
+                        currentLine = '';
+                        charCount = 0;
+                    }
+                }
+
+                if (currentLine) {
+                    lines.push(currentLine);
+                }
+            }
+
+            return lines;
+        }
+
+        function updatePreview() {
+            const panel = document.getElementById('panel');
+            const content = document.getElementById('panelContent');
+
+            // 更新 CSS 变量
+            const root = document.documentElement;
+            root.style.setProperty('--panel-width', document.getElementById('panelWidth').value + 'px');
+            root.style.setProperty('--panel-height', document.getElementById('panelHeight').value + 'px');
+            root.style.setProperty('--font-size', document.getElementById('fontSize').value + 'px');
+            root.style.setProperty('--line-height', document.getElementById('lineHeight').value + 'px');
+            root.style.setProperty('--padding', document.getElementById('padding').value + 'px');
+            root.style.setProperty('--bg-color', document.getElementById('bgColor').value);
+            root.style.setProperty('--border-color', document.getElementById('borderColor').value);
+            root.style.setProperty('--header-bg', document.getElementById('headerBg').value);
+            root.style.setProperty('--title-color', document.getElementById('titleColor').value);
+            root.style.setProperty('--gold-color', document.getElementById('goldColor').value);
+            root.style.setProperty('--green-color', document.getElementById('greenColor').value);
+            root.style.setProperty('--light-blue-color', document.getElementById('lightBlueColor').value);
+            root.style.setProperty('--panel-top', '20px');
+            root.style.setProperty('--panel-right', '20px');
+
+            // 解析 JSON
+            const jsonText = document.getElementById('jsonInput').value;
+            let data;
+
+            try {
+                data = JSON.parse(jsonText);
+            } catch (e) {
+                content.innerHTML = '<div class="status">JSON 解析错误: ' + e.message + '</div>';
+                return;
+            }
+
+            const charsPerLine = parseInt(document.getElementById('charsPerLine').value);
+
+            // 处理特殊状态
+            if (data._loading) {
+                const dots = '.'.repeat(Math.floor(Date.now() / 500) % 4);
+                content.innerHTML = '<div class="loading">分析中' + dots + '</div>';
+                return;
+            }
+
+            if (data._error) {
+                content.innerHTML = '<div class="status">' + data._error + '</div>';
+                return;
+            }
+
+            // 构建内容
+            let html = '';
+
+            // 鼓励消息
+            if (data.companionMessage) {
+                html += '<div class="companion-message">【' + data.companionMessage + '】</div>';
+            }
+
+            // 策略说明
+            if (data.reasoning) {
+                const lines = wrapText(data.reasoning, charsPerLine);
+                html += '<div class="reasoning">' + lines.join('\n') + '</div>';
+            }
+
+            // 建议列表
+            if (data.suggestions && data.suggestions.length > 0) {
+                const sectionTitle = currentScenario === 'reward' ? '选牌建议' : '出牌顺序';
+                html += '<div class="section-title">【' + sectionTitle + '】</div>';
+
+                for (const s of data.suggestions) {
+                    const cardName = s.cardName || '卡牌' + s.cardIndex;
+
+                    if (currentScenario === 'reward') {
+                        const prefix = s.priority === 1 ? '★ ' : '☆ ';
+                        let line = prefix + cardName;
+                        if (s.reason) line += '：' + s.reason;
+
+                        const lines = wrapText(line, charsPerLine);
+                        const className = s.priority === 1 ? 'suggestion recommended' : 'suggestion alternate';
+                        html += '<div class="' + className + '">' + lines.join('<br>') + '</div>';
+                    } else {
+                        const targetName = s.targetName || '目标';
+                        let line = s.priority + '. ' + cardName + ' → ' + targetName;
+                        if (s.reason) line += '：' + s.reason;
+
+                        const lines = wrapText(line, charsPerLine);
+                        html += '<div class="suggestion battle">' + lines.join('<br>') + '</div>';
+                    }
+                }
+            }
+
+            content.innerHTML = html || '<div class="status">无建议数据</div>';
+        }
+
+        function exportJavaParams() {
+            const params = `// RecommendationPanel 参数配置
+private static final float LINE_HEIGHT = ${document.getElementById('lineHeight').value}f;
+private static final float LINE_HEIGHT_LARGE = ${Math.round(document.getElementById('lineHeight').value * 0.74)}f;
+private static final float PADDING = ${document.getElementById('padding').value}f;
+private static final int CHARS_PER_LINE = ${document.getElementById('charsPerLine').value};
+
+// 面板尺寸
+this.width = ${document.getElementById('panelWidth').value}f;
+this.height = ${document.getElementById('panelHeight').value}f;
+
+// 颜色 (RGB 0-1 范围)
+// 背景: ${document.getElementById('bgColor').value}
+shapeRenderer.setColor(${hexToRgb01('bgColor')});
+
+// 边框: ${document.getElementById('borderColor').value}
+shapeRenderer.setColor(${hexToRgb01('borderColor')});
+
+// 标题栏: ${document.getElementById('headerBg').value}
+shapeRenderer.setColor(${hexToRgb01('headerBg')});
+
+// 标题文字: ${document.getElementById('titleColor').value}
+new Color(${hexToRgb01('titleColor')}, 1.0f)
+
+// 金色: ${document.getElementById('goldColor').value}
+new Color(${hexToRgb01('goldColor')}, 1.0f)
+
+// 绿色: ${document.getElementById('greenColor').value}
+new Color(${hexToRgb01('greenColor')}, 1.0f)
+
+// 浅蓝: ${document.getElementById('lightBlueColor').value}
+new Color(${hexToRgb01('lightBlueColor')}, 1.0f)`;
+
+            document.getElementById('exportOutput').textContent = params;
+            navigator.clipboard.writeText(params);
+            alert('已复制到剪贴板！');
+        }
+
+        function hexToRgb01(inputId) {
+            const hex = document.getElementById(inputId).value;
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            return `${r.toFixed(2)}f, ${g.toFixed(2)}f, ${b.toFixed(2)}f`;
+        }
+
+        // 拖拽功能
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        const panel = document.getElementById('panel');
+        const panelHeader = document.getElementById('panelHeader');
+        const gameBg = document.getElementById('gameBg');
+
+        panelHeader.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            const rect = panel.getBoundingClientRect();
+            const bgRect = gameBg.getBoundingClientRect();
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const bgRect = gameBg.getBoundingClientRect();
+            let x = e.clientX - bgRect.left - dragOffsetX;
+            let y = e.clientY - bgRect.top - dragOffsetY;
+
+            // 限制在游戏区域内
+            x = Math.max(0, Math.min(x, bgRect.width - panel.offsetWidth));
+            y = Math.max(0, Math.min(y, bgRect.height - panel.offsetHeight));
+
+            panel.style.left = x + 'px';
+            panel.style.top = y + 'px';
+            panel.style.right = 'auto';
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // 加载动画
+        setInterval(() => {
+            const jsonText = document.getElementById('jsonInput').value;
+            try {
+                const data = JSON.parse(jsonText);
+                if (data._loading) {
+                    updatePreview();
+                }
+            } catch (e) {}
+        }, 500);
+
+        // 初始化
+        loadSample('battle');
+    </script>
+</body>
+</html>
