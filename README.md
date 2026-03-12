@@ -1,13 +1,14 @@
-# STS AI Advisor Mod
+# STS AI Advisor
 
-An AI-powered advisor mod for Slay the Spire that provides real-time battle suggestions using Claude or GPT-4.
+An AI-powered advisor mod for Slay the Spire that provides real-time battle suggestions using LLM APIs.
 
 ## Features
 
-- Real-time battle analysis and card play recommendations
-- Support for both Claude (Anthropic) and GPT-4 (OpenAI) APIs
-- Priority-based card suggestions with reasoning
-- In-game UI panel with hotkey support
+- **Battle Scene**: Real-time card play recommendations with reasoning
+- **Reward Scene**: Card selection suggestions based on deck archetype
+- **3-Agent Architecture**: Analysis + Skill + Advisor collaboration
+- **Local Knowledge Base**: Markdown-based tactics with LLM extraction
+- **Multi-LLM Support**: Claude, GPT-4, and OpenAI-compatible APIs
 
 ## Requirements
 
@@ -25,97 +26,52 @@ An AI-powered advisor mod for Slay the Spire that provides real-time battle sugg
 
 ## Configuration
 
-Edit `mods/sts-ai-advisor/config.json` to configure:
+Edit `mods/sts-ai-advisor/config.json`:
 
 ```json
 {
   "apiKey": "your-api-key-here",
-  "model": "claude-3-5-sonnet-20241022",
-  "apiProvider": "anthropic",
+  "baseUrl": "https://api.openai.com/v1",
+  "model": "gpt-4o",
+  "apiProvider": "openai",
   "enableAutoAdvice": true,
-  "showReasoning": true,
   "requestTimeout": 30
 }
 ```
 
-### API Providers
+### Supported APIs
 
-- **Anthropic (Claude)**: Set `apiProvider` to `"anthropic"` and use your Anthropic API key
-- **OpenAI (GPT-4)**: Set `apiProvider` to `"openai"` and use your OpenAI API key
-
-### Models
-
-For Anthropic:
-- `claude-3-5-sonnet-20241022` (recommended)
-- `claude-3-opus-20240229`
-
-For OpenAI:
-- `gpt-4o` (recommended)
-- `gpt-4-turbo`
+- **OpenAI**: GPT-4o, GPT-4-turbo
+- **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus
+- **OpenAI-Compatible**: DashScope (Qwen), DeepSeek, etc.
 
 ## Hotkeys
 
 - **F4**: Toggle the advice panel
 - **F3**: Manually request advice
 
-## Building from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/your-repo/sts-ai-advisor.git
-cd sts-ai-advisor
-
-# Copy game JARs to libs/ folder
-# - desktop-1.0.jar from your Slay the Spire installation
-# - ModTheSpire.jar
-# - BaseMod.jar
-# - StSLib.jar
-
-# Build
-./gradlew build
-
-# The output JAR will be in build/libs/
-```
-
-## Development Setup
-
-### Prerequisites
-- JDK 8 or JDK 11
-- IntelliJ IDEA (recommended) or any Java IDE
-
-### IntelliJ Setup
-1. Open the project in IntelliJ
-2. Wait for Gradle sync
-3. Copy required JARs to `libs/` folder
-4. Run `gradlew build` to verify setup
-
 ## Architecture
 
 ```
 com.stsaiadvisor/
-├── STSAIAdvisorMod.java     # Mod entry point
-├── config/                   # Configuration management
-├── model/                    # Data models
-├── capture/                  # Game state capture
-├── llm/                      # LLM API clients
-├── event/                    # Event listeners
-├── ui/                       # UI rendering
-└── util/                     # Utilities
+├── agent/          # 3-Agent system (Analysis, Skill, Advisor)
+├── capture/        # Game state capture (Battle, Reward)
+├── event/          # Event listeners
+├── knowledge/      # Skill manager & knowledge base
+├── llm/            # LLM API clients & prompt builders
+├── model/          # Data models
+├── ui/             # UI rendering
+└── util/           # Utilities
 ```
 
-## API Keys
+## Building
 
-You need to obtain an API key from either:
-- [Anthropic Console](https://console.anthropic.com/) for Claude
-- [OpenAI Platform](https://platform.openai.com/) for GPT-4
-
-**Important**: Keep your API key secure. Never share it or commit it to version control.
+```bash
+git clone https://github.com/clanceylau-design/sts-ai-advisor.git
+cd sts-ai-advisor
+./gradlew build
+```
 
 ## License
 
 MIT License
-
-## Credits
-
-- Built with [BaseMod](https://github.com/daviscook477/BaseMod)
-- Powered by [ModTheSpire](https://github.com/kiooeht/ModTheSpire)
