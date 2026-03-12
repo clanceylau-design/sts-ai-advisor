@@ -1,0 +1,14 @@
+{
+  "modid": "sts-ai-advisor",
+  "name": "AI Advisor",
+  "author": "STS AI Advisor Team",
+  "description": "An AI-powered advisor that provides real-time battle suggestions for Slay the Spire using Claude or GPT-4.",
+  "version": "0.1.0",
+  "sts_version": "12-01-2024",
+  "mts_version": "3.30.0",
+  "dependencies": [
+    "basemod",
+    "stslib"
+  ],
+  "update_json": ""
+}

@@ -1,0 +1,26 @@
+# Ignore Gradle build output
+.gradle/
+build/
+out/
+
+# Ignore IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore game JARs (user must provide)
+libs/desktop-1.0.jar
+libs/ModTheSpire.jar
+libs/BaseMod.jar
+libs/StSLib.jar
+
+# Keep the libs directory
+!libs/.gitkeep
+
+# Ignore user config
+config.json
