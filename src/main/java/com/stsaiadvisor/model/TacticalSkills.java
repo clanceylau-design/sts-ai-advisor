@@ -10,6 +10,9 @@ public class TacticalSkills {
     private String deckStrategy;
     private List<String> priorityTargets;
 
+    /** SkillAgent的原始输出，直接传递给AdvisorAgent */
+    private String rawOutput;
+
     public TacticalSkills() {}
 
     // Getters and Setters
@@ -21,4 +24,7 @@ public class TacticalSkills {
 
     public List<String> getPriorityTargets() { return priorityTargets; }
     public void setPriorityTargets(List<String> priorityTargets) { this.priorityTargets = priorityTargets; }
+
+    public String getRawOutput() { return rawOutput; }
+    public void setRawOutput(String rawOutput) { this.rawOutput = rawOutput; }
 }

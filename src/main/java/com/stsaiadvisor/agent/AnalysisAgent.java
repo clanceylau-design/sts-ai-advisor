@@ -59,14 +59,9 @@ public class AnalysisAgent implements Agent<SceneContext, AnalysisResult> {
     private static final Pattern SITUATION_PATTERN =
         Pattern.compile("【局势】\\s*(\\w+)\\s*[|｜]\\s*(.+)");
 
-    /** 解析威胁的正则 */
-    private static final Pattern THREAT_PATTERN =
-        Pattern.compile("【威胁】\\s*预计伤害\\s*(\\d+).*风险\\s*(\\d+)%[，,]?\\s*(.+)");
-
-    /** 解析机会的正则 */
-    private static final Pattern OPPORTUNITY_PATTERN =
-        Pattern.compile("【机会】\\s*致死伤害\\s*(\\d+).*可击杀[：:]\\s*(是|否)[，,]?\\s*(.+)",
-            Pattern.DOTALL);
+    /** 解析关键信息列表项的正则 */
+    private static final Pattern KEY_INFO_PATTERN =
+        Pattern.compile("^\\s*(\\d+)\\.\\s*(.+)");
 
     // ========== Reward场景正则 ==========
 
@@ -225,6 +220,9 @@ public class AnalysisAgent implements Agent<SceneContext, AnalysisResult> {
         // 清理格式字符
         content = cleanText(content);
 
+        List<String> keyInfoList = new ArrayList<>();
+        boolean inKeyInfoSection = false;
+
         // 按行解析
         String[] lines = content.split("\n");
         for (String line : lines) {
@@ -238,27 +236,28 @@ public class AnalysisAgent implements Agent<SceneContext, AnalysisResult> {
                 continue;
             }
 
-            // 解析威胁
-            Matcher threatMatcher = THREAT_PATTERN.matcher(line);
-            if (threatMatcher.find()) {
-                ThreatAssessment threats = new ThreatAssessment();
-                threats.setIncomingDamage(Integer.parseInt(threatMatcher.group(1)));
-                threats.setSurvivalRisk(Integer.parseInt(threatMatcher.group(2)));
-                threats.setPrimaryThreat(threatMatcher.group(3).trim());
-                result.setThreats(threats);
+            // 检测进入【关键信息】区域
+            if (line.contains("【关键信息】")) {
+                inKeyInfoSection = true;
                 continue;
             }
 
-            // 解析机会
-            Matcher oppMatcher = OPPORTUNITY_PATTERN.matcher(line);
-            if (oppMatcher.find()) {
-                OpportunityAssessment opp = new OpportunityAssessment();
-                opp.setLethalDamage(Integer.parseInt(oppMatcher.group(1)));
-                opp.setCanKillThisTurn("是".equals(oppMatcher.group(2)));
-                opp.setPrimaryOpportunity(oppMatcher.group(3).trim());
-                result.setOpportunities(opp);
+            // 检测离开关键信息区域（遇到新的【xxx】）
+            if (line.startsWith("【") && !line.contains("【关键信息】")) {
+                inKeyInfoSection = false;
+                continue;
+            }
+
+            // 解析关键信息列表项
+            if (inKeyInfoSection) {
+                Matcher keyInfoMatcher = KEY_INFO_PATTERN.matcher(line);
+                if (keyInfoMatcher.find()) {
+                    keyInfoList.add(keyInfoMatcher.group(2).trim());
+                }
             }
         }
+
+        result.setKeyInfo(keyInfoList);
 
         // 默认值
         if (result.getUrgencyLevel() == null) {

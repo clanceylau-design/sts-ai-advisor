@@ -191,6 +191,21 @@ public class BattleStateCapture {
         state.setGold(player.gold);
         state.setCharacterClass(player.chosenClass != null ? player.chosenClass.name() : "UNKNOWN");
 
+        // 捕获玩家能力/buff/debuff
+        List<String> powers = new ArrayList<>();
+        if (player.powers != null) {
+            for (AbstractPower power : player.powers) {
+                if (power != null && power.name != null) {
+                    String powerDesc = power.name;
+                    if (power.amount != 0) {
+                        powerDesc += " (" + power.amount + ")";
+                    }
+                    powers.add(powerDesc);
+                }
+            }
+        }
+        state.setPowers(powers);
+
         return state;
     }
 

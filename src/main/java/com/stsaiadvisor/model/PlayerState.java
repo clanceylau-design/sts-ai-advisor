@@ -1,5 +1,7 @@
 package com.stsaiadvisor.model;
 
+import java.util.List;
+
 /**
  * Represents the player's current state.
  */
@@ -14,6 +16,9 @@ public class PlayerState {
     private int focus;
     private int gold;
     private String characterClass;
+
+    /** 玩家身上的能力/buff/debuff列表 */
+    private List<String> powers;
 
     public PlayerState() {}
 
@@ -47,6 +52,9 @@ public class PlayerState {
 
     public String getCharacterClass() { return characterClass; }
     public void setCharacterClass(String characterClass) { this.characterClass = characterClass; }
+
+    public List<String> getPowers() { return powers; }
+    public void setPowers(List<String> powers) { this.powers = powers; }
 
     @Override
     public String toString() {

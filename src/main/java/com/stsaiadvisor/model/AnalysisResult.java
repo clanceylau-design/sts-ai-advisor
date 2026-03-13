@@ -14,7 +14,7 @@ import java.util.List;
  *
  * <p>场景输出：
  * <ul>
- *   <li>battle: 局势分析、威胁评估、机会评估</li>
+ *   <li>battle: 局势分析、关键信息列表</li>
  *   <li>reward: 牌组流派分析、短板识别</li>
  * </ul>
  *
@@ -26,7 +26,7 @@ public class AnalysisResult {
     /** 场景类型 */
     private String scenario;
 
-    // ========== 战斗场景输出（兼容ViewState） ==========
+    // ========== 战斗场景输出 ==========
 
     /** 局势总结 */
     private String situationSummary;
@@ -34,14 +34,11 @@ public class AnalysisResult {
     /** 局势紧急程度 */
     private String urgencyLevel;
 
+    /** 关键信息列表（分点列出） */
+    private List<String> keyInfo;
+
     /** 关键焦点 */
     private List<String> keyFocus;
-
-    /** 威胁评估 */
-    private ThreatAssessment threats;
-
-    /** 机会评估 */
-    private OpportunityAssessment opportunities;
 
     // ========== 奖励场景输出 ==========
 
@@ -68,17 +65,17 @@ public class AnalysisResult {
     public String getUrgencyLevel() { return urgencyLevel; }
     public void setUrgencyLevel(String urgencyLevel) { this.urgencyLevel = urgencyLevel; }
 
+    public List<String> getKeyInfo() {
+        if (keyInfo == null) keyInfo = new ArrayList<>();
+        return keyInfo;
+    }
+    public void setKeyInfo(List<String> keyInfo) { this.keyInfo = keyInfo; }
+
     public List<String> getKeyFocus() {
         if (keyFocus == null) keyFocus = new ArrayList<>();
         return keyFocus;
     }
     public void setKeyFocus(List<String> keyFocus) { this.keyFocus = keyFocus; }
-
-    public ThreatAssessment getThreats() { return threats; }
-    public void setThreats(ThreatAssessment threats) { this.threats = threats; }
-
-    public OpportunityAssessment getOpportunities() { return opportunities; }
-    public void setOpportunities(OpportunityAssessment opportunities) { this.opportunities = opportunities; }
 
     public String getDeckArchetype() { return deckArchetype; }
     public void setDeckArchetype(String deckArchetype) { this.deckArchetype = deckArchetype; }
@@ -111,9 +108,7 @@ public class AnalysisResult {
                 vs.setUrgencyLevel(ViewState.UrgencyLevel.MEDIUM);
             }
         }
-        vs.setKeyFocus(keyFocus);
-        vs.setThreats(threats);
-        vs.setOpportunities(opportunities);
+        vs.setKeyFocus(keyInfo != null && !keyInfo.isEmpty() ? keyInfo : keyFocus);
         return vs;
     }
 
@@ -129,8 +124,6 @@ public class AnalysisResult {
             result.setUrgencyLevel(vs.getUrgencyLevel().name());
         }
         result.setKeyFocus(vs.getKeyFocus());
-        result.setThreats(vs.getThreats());
-        result.setOpportunities(vs.getOpportunities());
         return result;
     }
 }

@@ -41,6 +41,9 @@ public class OverlayClient {
     private final Gson gson;
     private boolean enabled = true;
 
+    /** 面板是否可见 */
+    private boolean visible = true;
+
     public OverlayClient() {
         this.gson = new Gson();
     }
@@ -64,6 +67,30 @@ public class OverlayClient {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    /**
+     * 切换 Overlay 显示/隐藏
+     *
+     * <p>如果当前可见则隐藏，如果隐藏则显示
+     */
+    public void toggle() {
+        if (!enabled) return;
+
+        if (visible) {
+            hide();
+        } else {
+            show();
+        }
+    }
+
+    /**
+     * 面板是否可见
+     *
+     * @return 可见状态
+     */
+    public boolean isVisible() {
+        return visible;
     }
 
     /**
@@ -123,6 +150,7 @@ public class OverlayClient {
     public void hide() {
         if (!enabled) return;
         post("/hide", new Object());
+        visible = false;
     }
 
     /**
@@ -131,6 +159,7 @@ public class OverlayClient {
     public void show() {
         if (!enabled) return;
         post("/show", new Object());
+        visible = true;
     }
 
     /**

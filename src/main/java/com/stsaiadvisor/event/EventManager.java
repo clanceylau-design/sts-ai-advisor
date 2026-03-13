@@ -4,6 +4,7 @@ import basemod.BaseMod;
 import basemod.interfaces.PostUpdateSubscriber;
 import com.stsaiadvisor.STSAIAdvisorMod;
 import com.stsaiadvisor.agent.SceneOrchestrator;
+import com.stsaiadvisor.overlay.OverlayClient;
 import com.stsaiadvisor.ui.KeyInputListener;
 
 /**
@@ -50,9 +51,26 @@ public class EventManager implements PostUpdateSubscriber {
         keyInputListener.setCallbacks(
             () -> {
                 // F4: 切换 Overlay 显示/隐藏
-                if (STSAIAdvisorMod.isOverlayMode()) {
-                    // 通过 HTTP 控制 Overlay
-                    // TODO: 实现 toggle 功能
+                OverlayClient overlayClient = STSAIAdvisorMod.getOverlayClient();
+                if (overlayClient == null) {
+                    System.out.println("[EventManager] OverlayClient not initialized");
+                    return;
+                }
+
+                // 检查 Overlay 是否可用
+                if (overlayClient.isAvailable()) {
+                    // 可用：切换显示/隐藏
+                    overlayClient.toggle();
+                    System.out.println("[EventManager] Overlay toggled, visible: " + overlayClient.isVisible());
+                } else {
+                    // 不可用：尝试重新启动
+                    System.out.println("[EventManager] Overlay not available, attempting to restart...");
+                    if (STSAIAdvisorMod.startOverlayProcess()) {
+                        overlayClient.show();
+                        System.out.println("[EventManager] Overlay restarted and shown");
+                    } else {
+                        System.err.println("[EventManager] Failed to restart Overlay");
+                    }
                 }
             },
             () -> {

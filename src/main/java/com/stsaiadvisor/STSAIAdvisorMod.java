@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpireInitializer;
 import com.stsaiadvisor.agent.SceneOrchestrator;
+import com.stsaiadvisor.config.LocalConfig;
 import com.stsaiadvisor.config.ModConfig;
 import com.stsaiadvisor.event.EventManager;
 import com.stsaiadvisor.llm.LLMClient;
@@ -224,20 +225,35 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
      * <p>尝试启动 Electron Overlay 应用。
      * 查找顺序：
      * <ol>
-     *   <li>项目目录下的 overlay/</li>
+     *   <li>项目目录下的 overlay/（从 local.properties 读取）</li>
      *   <li>mod 目录下的 overlay/</li>
      * </ol>
+     *
+     * @return true 如果启动成功或已运行
      */
-    private static void startOverlayProcess() {
+    public static boolean startOverlayProcess() {
         System.out.println("[AI Advisor] Attempting to start Overlay...");
 
+        // 如果已经在运行，直接返回成功
+        if (overlayClient != null && overlayClient.isAvailable()) {
+            System.out.println("[AI Advisor] Overlay already running");
+            return true;
+        }
+
+        // 从配置获取项目目录
+        LocalConfig localConfig = LocalConfig.getInstance();
+        String configuredProjectDir = localConfig.getOverlayDir();
+
         // 可能的 Overlay 路径
-        String[] possiblePaths = {
-            // 项目开发目录
-            "C:\\Users\\grenty\\sts-ai-advisor\\overlay",
-            // Mod 目录
-            "mods\\sts-ai-advisor\\overlay"
-        };
+        java.util.List<String> possiblePaths = new java.util.ArrayList<>();
+
+        // 优先使用配置的项目目录
+        if (configuredProjectDir != null && !configuredProjectDir.isEmpty()) {
+            possiblePaths.add(configuredProjectDir);
+        }
+
+        // Mod 目录（相对路径）
+        possiblePaths.add("mods\\sts-ai-advisor\\overlay");
 
         for (String overlayPath : possiblePaths) {
             java.io.File dir = new java.io.File(overlayPath);
@@ -253,7 +269,11 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
 
                     // 等待一下让 Overlay 启动
                     Thread.sleep(2000);
-                    return;
+
+                    // 检查是否启动成功
+                    if (overlayClient != null && overlayClient.isAvailable()) {
+                        return true;
+                    }
                 } catch (Exception e) {
                     System.err.println("[AI Advisor] Failed to start Overlay from " + overlayPath + ": " + e.getMessage());
                 }
@@ -261,6 +281,7 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
         }
 
         System.err.println("[AI Advisor] Overlay not found in any known location");
+        return false;
     }
 
     /**

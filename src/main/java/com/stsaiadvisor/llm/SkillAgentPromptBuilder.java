@@ -18,15 +18,15 @@ public class SkillAgentPromptBuilder {
      * System Prompt - 简洁版
      */
     private static final String SYSTEM_PROMPT =
-        "你是杀戮尖塔的战术专家。根据牌组给出战术建议。\n\n" +
-        "## 输出要求\n" +
-        "直接输出结果，格式如下：\n\n" +
-        "【流派】主流派名称，成型度X%\n\n" +
-        "【策略】一句话整体策略\n\n" +
-        "【优先目标】优先攻击的敌人\n\n" +
-        "示例：\n" +
-        "【流派】力量流，成型度65%\n" +
-        "【策略】通过力量叠加提高伤害，优先击杀高威胁敌人\n" +
+        "你是杀戮尖塔的战术专家。根据牌组给出战术建议。" +
+        "## 输出要求" +
+        "直接输出结果，格式如下：" +
+        "【流派】主流派名称，成型度X%" +
+        "【策略】一句话整体策略" +
+        "【优先目标】优先攻击的敌人" +
+        "示例：" +
+        "【流派】力量流，成型度65%" +
+        "【策略】通过力量叠加提高伤害，优先击杀高威胁敌人" +
         "【优先目标】酸液史莱姆";
 
     /**
@@ -43,14 +43,14 @@ public class SkillAgentPromptBuilder {
         StringBuilder prompt = new StringBuilder();
 
         // 角色信息
-        prompt.append(String.format("【角色】%s 第%d层\n",
+        prompt.append(String.format("【角色】%s 第%d层",
             getCharacterNameCN(request.getCharacterClass()), request.getAct()));
 
         // 流派分析
         if (request.getArchetype() != null) {
             DeckArchetype archetype = request.getArchetype();
             String primary = archetype.getPrimaryArchetype() != null ? archetype.getPrimaryArchetype() : "混合";
-            prompt.append(String.format("【流派分析】%s，成型度%d%%\n",
+            prompt.append(String.format("【流派分析】%s，成型度%d%%",
                 primary, archetype.getArchetypeStrength()));
         }
 
@@ -61,13 +61,13 @@ public class SkillAgentPromptBuilder {
                 if ("ATTACK".equals(card.getType())) attacks++;
                 else if ("SKILL".equals(card.getType())) skills++;
             }
-            prompt.append(String.format("【牌组】%d张(%d攻%d技)\n",
+            prompt.append(String.format("【牌组】%d张(%d攻%d技)",
                 request.getFullDeck().size(), attacks, skills));
         }
 
         // 遗物
         if (request.getRelics() != null && !request.getRelics().isEmpty()) {
-            prompt.append("【遗物】").append(String.join("、", request.getRelics())).append("\n");
+            prompt.append("【遗物】").append(String.join("、", request.getRelics())).append("");
         }
 
         // 敌人
@@ -76,10 +76,10 @@ public class SkillAgentPromptBuilder {
             for (EnemyState enemy : request.getEnemies()) {
                 prompt.append(String.format("%s(%dHP) ", enemy.getName(), enemy.getCurrentHealth()));
             }
-            prompt.append("\n");
+            prompt.append("");
         }
 
-        prompt.append("\n请给出战术建议。");
+        prompt.append("请给出战术建议。");
 
         return prompt.toString();
     }

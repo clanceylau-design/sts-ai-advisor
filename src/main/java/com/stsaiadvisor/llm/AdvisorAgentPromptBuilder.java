@@ -30,24 +30,27 @@ public class AdvisorAgentPromptBuilder {
      * Battle场景System Prompt
      */
     private static final String BATTLE_SYSTEM_PROMPT =
-        "你是杀戮尖塔的决策顾问。根据局势和战术建议，给出本回合最优出牌顺序。\n\n" +
-        "## 决策原则\n" +
-        "- CRITICAL: 生存第一，优先防御\n" +
-        "- HIGH: 注意防御和资源管理\n" +
-        "- LOW/MEDIUM: 可考虑连招和长期策略\n\n" +
-        "## 输出要求\n" +
-        "直接输出建议，格式如下：\n\n" +
-        "【出牌顺序】\n" +
-        "[手牌索引] 卡牌名 -> 目标敌人名：理由（10字内）\n" +
-        "无目标卡牌写：[手牌索引] 卡牌名 -> 自身\n\n" +
-        "【策略】一句话说明\n\n" +
-        "【提示】简短鼓励（可选）\n\n" +
-        "示例：\n" +
-        "【出牌顺序】\n" +
-        "[4] 剑柄打击 -> 酸液史莱姆：9伤击杀\n" +
-        "[2] 打击 -> 酸液史莱姆：补刀\n\n" +
-        "【策略】先清小怪，再处理大怪\n\n" +
-        "【提示】这回合稳了！";
+        "你是杀戮尖塔的决策顾问。根据局势和战术建议，给出本回合最优出牌顺序。" +
+        "## 基本原则：" +
+        "1. 费用消耗不能大于当前总能量" +
+        "2.单回合内追求费用效率最大化" +
+        "## 决策原则" +
+        "- CRITICAL: 生存第一，优先防御" +
+        "- HIGH: 注意防御和资源管理" +
+        "- LOW/MEDIUM: 可考虑连招和长期策略  " +
+        "## 输出要求 " +
+        "直接输出建议，格式如下：  " +
+        "【出牌顺序】 " +
+        "[手牌索引] 卡牌名 -> 目标敌人名：理由（10字内） " +
+        "无目标卡牌写：[手牌索引] 卡牌名 -> 自身  " +
+        "【策略】一句话说明本回合策略" +
+        "【提示】简短鼓励和提示（可选）  " +
+        "示例： " +
+        "【出牌顺序】 " +
+        "[4] 剑柄打击 -> 酸液史莱姆：9伤击杀 " +
+        "[2] 打击 -> 酸液史莱姆：补刀  " +
+        "【策略】{本回合策略}" +
+        "【提示】{需要注意的点}";
 
     // ========== Reward场景提示词 ==========
 
@@ -55,21 +58,21 @@ public class AdvisorAgentPromptBuilder {
      * Reward场景System Prompt
      */
     private static final String REWARD_SYSTEM_PROMPT =
-        "你是杀戮尖塔的选牌顾问。根据牌组分析和战术知识，给出卡牌奖励选择建议。\n\n" +
-        "## 决策原则\n" +
-        "- 流派优先：优先选择符合当前流派的卡牌\n" +
-        "- 短板补充：优先解决牌组明显短板\n" +
-        "- 精简原则：牌组过厚(>30张)时考虑跳过\n\n" +
-        "## 输出要求\n" +
-        "直接输出建议，格式如下：\n\n" +
-        "【推荐】[索引] 卡牌名：理由（15字内）\n" +
-        "【备选】[索引] 卡牌名：理由（可选）\n\n" +
-        "【策略】选牌/跳过的整体策略\n\n" +
-        "【跳过】是/否：理由（可选）\n\n" +
-        "示例：\n" +
-        "【推荐】[0] 灵体：消耗流核心，配合遗物\n" +
-        "【备选】[1] 重刃：力量流补充输出\n\n" +
-        "【策略】优先补充消耗流核心卡\n\n" +
+        "你是杀戮尖塔的选牌顾问。根据牌组分析和战术知识，给出卡牌奖励选择建议。  " +
+        "## 决策原则 " +
+        "- 流派优先：优先选择符合当前流派的卡牌 " +
+        "- 短板补充：优先解决牌组明显短板 " +
+        "- 精简原则：牌组过厚(>30张)时考虑跳过  " +
+        "## 输出要求 " +
+        "直接输出建议，格式如下：  " +
+        "【推荐】[索引] 卡牌名：理由（15字内） " +
+        "【备选】[索引] 卡牌名：理由（可选）  " +
+        "【策略】选牌/跳过的整体策略  " +
+        "【跳过】是/否：理由（可选）  " +
+        "示例： " +
+        "【推荐】[0] 灵体：消耗流核心，配合遗物 " +
+        "【备选】[1] 重刃：力量流补充输出  " +
+        "【策略】优先补充消耗流核心卡  " +
         "【跳过】否：有核心卡可选";
 
     /**
@@ -135,12 +138,20 @@ public class AdvisorAgentPromptBuilder {
             prompt.append("【局势】");
             prompt.append(viewState.getUrgencyLevel()).append(" | ");
             prompt.append(viewState.getSituationSummary());
-            prompt.append("\n");
+            prompt.append(" ");
+
+            // 关键信息
+            if (viewState.getKeyFocus() != null && !viewState.getKeyFocus().isEmpty()) {
+                prompt.append("【关键信息】 ");
+                for (int i = 0; i < viewState.getKeyFocus().size(); i++) {
+                    prompt.append((i + 1)).append(". ").append(viewState.getKeyFocus().get(i)).append(" ");
+                }
+            }
         }
 
-        // 战术提示
-        if (request.getSkills() != null && request.getSkills().getDeckStrategy() != null) {
-            prompt.append("【战术】").append(request.getSkills().getDeckStrategy()).append("\n");
+        // 战术专家建议（原文）
+        if (request.getSkills() != null && request.getSkills().getRawOutput() != null) {
+            prompt.append("【战术专家建议】 ").append(request.getSkills().getRawOutput()).append(" ");
         }
 
         // 当前状态
@@ -150,8 +161,12 @@ public class AdvisorAgentPromptBuilder {
             // 玩家状态
             if (context.getPlayer() != null) {
                 PlayerState p = context.getPlayer();
-                prompt.append(String.format("【玩家】HP %d/%d 能量 %d 格挡 %d\n",
+                prompt.append(String.format("【玩家】HP %d/%d 能量 %d 格挡 %d ",
                     p.getCurrentHealth(), p.getMaxHealth(), p.getEnergy(), p.getBlock()));
+                // 显示玩家能力/buff
+                if (p.getPowers() != null && !p.getPowers().isEmpty()) {
+                    prompt.append("【能力】").append(String.join("、", p.getPowers())).append(" ");
+                }
             }
 
             // 手牌
@@ -170,10 +185,10 @@ public class AdvisorAgentPromptBuilder {
                     }
                     prompt.append(") ");
                 }
-                prompt.append("\n");
+                prompt.append(" ");
             }
 
-            // 敌人
+            // 敌人（改进描述）
             if (context.getEnemies() != null && !context.getEnemies().isEmpty()) {
                 prompt.append("【敌人】");
                 Map<String, Integer> nameCount = new HashMap<>();
@@ -191,17 +206,59 @@ public class AdvisorAgentPromptBuilder {
                         displayName = baseName;
                     }
 
-                    prompt.append(String.format("%s(%d/%dHP) ",
-                        displayName,
-                        enemy.getCurrentHealth(),
-                        enemy.getMaxHealth()));
+                    prompt.append(String.format("%s(%d/%dHP)", displayName, enemy.getCurrentHealth(), enemy.getMaxHealth()));
+
+                    // 友好的意图描述
+                    if (enemy.getIntents() != null && !enemy.getIntents().isEmpty()) {
+                        prompt.append("[").append(formatEnemyIntent(enemy.getIntents().get(0))).append("]");
+                    }
+
+                    // 显示敌人能力/buff
+                    if (enemy.getPowers() != null && !enemy.getPowers().isEmpty()) {
+                        prompt.append("{").append(String.join(",", enemy.getPowers())).append("}");
+                    }
+                    prompt.append(" ");
                 }
-                prompt.append("\n");
+                prompt.append(" ");
             }
         }
 
-        prompt.append("\n请给出本回合出牌建议。");
+        prompt.append(" 请给出本回合出牌建议。");
         return prompt.toString();
+    }
+
+    /**
+     * 格式化敌人意图为简短描述
+     */
+    private String formatEnemyIntent(EnemyIntent intent) {
+        String type = intent.getType();
+        int damage = intent.getDamage();
+        int multiplier = intent.getMultiplier();
+
+        switch (type) {
+            case "ATTACK":
+                if (damage > 0) {
+                    if (multiplier > 1) {
+                        return "攻击" + damage + "x" + multiplier;
+                    }
+                    return "攻击" + damage;
+                }
+                return "攻击";
+            case "DEFEND":
+                return "防御";
+            case "BUFF":
+                return "强化";
+            case "DEBUFF":
+                return "削弱";
+            case "SLEEP":
+                return "休眠";
+            case "STUN":
+                return "眩晕";
+            case "ESCAPE":
+                return "逃跑";
+            default:
+                return "未知";
+        }
     }
 
     // ========== Reward场景User Prompt ==========
@@ -225,10 +282,10 @@ public class AdvisorAgentPromptBuilder {
                 if (analysis.getArchetypeStrength() > 0) {
                     prompt.append("，成型度").append(analysis.getArchetypeStrength()).append("%");
                 }
-                prompt.append("\n");
+                prompt.append(" ");
             }
             if (analysis.getDeckWeaknesses() != null && !analysis.getDeckWeaknesses().isEmpty()) {
-                prompt.append("【短板】").append(String.join("、", analysis.getDeckWeaknesses())).append("\n");
+                prompt.append("【短板】").append(String.join("、", analysis.getDeckWeaknesses())).append(" ");
             }
         }
 
@@ -242,20 +299,20 @@ public class AdvisorAgentPromptBuilder {
                 else if ("SKILL".equals(type)) skills++;
                 else if ("POWER".equals(type)) powers++;
             }
-            prompt.append(String.format("【牌组】共%d张：攻击%d、技能%d、能力%d\n",
+            prompt.append(String.format("【牌组】共%d张：攻击%d、技能%d、能力%d ",
                 deck.size(), attacks, skills, powers));
         }
 
-        // 战术知识
-        if (request.getSkills() != null && request.getSkills().getDeckStrategy() != null) {
-            prompt.append("【战术】").append(request.getSkills().getDeckStrategy()).append("\n");
+        // 战术专家建议（原文）
+        if (request.getSkills() != null && request.getSkills().getRawOutput() != null) {
+            prompt.append("【战术专家建议】 ").append(request.getSkills().getRawOutput()).append(" ");
         }
 
         // 可选卡牌
         @SuppressWarnings("unchecked")
         List<CardState> rewardCards = context.getSceneData("rewardCards");
         if (rewardCards != null && !rewardCards.isEmpty()) {
-            prompt.append("\n【可选卡牌】\n");
+            prompt.append(" 【可选卡牌】 ");
             for (CardState card : rewardCards) {
                 prompt.append(String.format("[%d] %s（%d费）",
                     card.getCardIndex(),
@@ -288,11 +345,11 @@ public class AdvisorAgentPromptBuilder {
                 if (desc != null && !desc.isEmpty() && desc.length() > 2) {
                     prompt.append("：").append(desc);
                 }
-                prompt.append("\n");
+                prompt.append(" ");
             }
         }
 
-        prompt.append("\n请给出选牌建议。");
+        prompt.append(" 请给出选牌建议。");
         return prompt.toString();
     }
 

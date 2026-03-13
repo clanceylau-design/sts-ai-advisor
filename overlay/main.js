@@ -75,6 +75,7 @@ function createWindow() {
         skipTaskbar: true,
         resizable: true,
         hasShadow: false,
+        focusable: false,  // 不可聚焦，防止抢占焦点
 
         // 安全配置
         webPreferences: {
@@ -84,6 +85,9 @@ function createWindow() {
             defaultEncoding: 'UTF-8'     // 默认编码
         }
     });
+
+    // 设置更强的置顶级别（screen-saver 是最高级别）
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
 
     // 加载页面
     mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));

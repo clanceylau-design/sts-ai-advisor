@@ -1,0 +1,11 @@
+# 本地开发环境配置
+# 复制此文件为 local.properties 并填写你的实际路径
+
+# 游戏安装目录（用于部署 JAR）
+game.dir=D:\\SteamLibrary\\steamapps\\common\\SlayTheSpire
+
+# 项目开发目录（用于 Overlay 自动启动）
+project.dir=C:\\Users\\YourName\\sts-ai-advisor
+
+# Java 8 Home（用于 Gradle 编译，可选，留空则使用系统 Java）
+# java.home=C:\\Users\\YourName\\.jdks\\corretto-1.8.0_482

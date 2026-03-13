@@ -2,6 +2,25 @@ plugins {
     id 'java'
 }
 
+// 读取本地配置文件
+def localPropsFile = file('local.properties')
+def localProps = new Properties()
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { localProps.load(it) }
+}
+
+// 本地配置（带默认值）
+ext.gameDir = localProps.getProperty('game.dir', 'D:\\SteamLibrary\\steamapps\\common\\SlayTheSpire')
+ext.projectDir = localProps.getProperty('project.dir', project.projectDir.absolutePath)
+ext.javaHome = localProps.getProperty('java.home', '')
+
+// 如果配置了 Java Home，设置给 Gradle
+if (ext.javaHome && !ext.javaHome.isEmpty()) {
+    // 设置编译时使用的 Java（需要 Gradle 7.0+）
+    // 这里只是存储配置，实际使用需要通过命令行或 IDE 配置
+    println "[INFO] Local Java Home: ${ext.javaHome}"
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
@@ -49,4 +68,14 @@ jar {
 task copyDeps(type: Copy) {
     from configurations.runtimeClasspath
     into 'libs'
+}
+
+// 部署任务：将 JAR 复制到游戏 mods 目录
+task deploy(type: Copy, dependsOn: jar) {
+    from jar.archiveFile
+    into "${project.ext.gameDir}/mods"
+    rename { 'sts-ai-advisor.jar' }
+    doLast {
+        println "[DEPLOY] JAR deployed to: ${project.ext.gameDir}/mods/sts-ai-advisor.jar"
+    }
 }

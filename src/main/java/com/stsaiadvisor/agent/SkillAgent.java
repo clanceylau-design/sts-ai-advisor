@@ -201,39 +201,16 @@ public class SkillAgent implements Agent<SkillRequest, TacticalSkills> {
             JsonObject message = firstChoice.getAsJsonObject("message");
             String content = message.get("content").getAsString();
 
-            return parseSimpleText(content);
+            // 直接保存原文，不再解析格式
+            TacticalSkills skills = new TacticalSkills();
+            skills.setRawOutput(content.trim());
+            skills.setSkills(new ArrayList<>());
+            skills.setPriorityTargets(new ArrayList<>());
+
+            return skills;
         } catch (Exception e) {
             return createDefaultTacticalSkills("解析错误");
         }
-    }
-
-    private TacticalSkills parseSimpleText(String content) {
-        TacticalSkills skills = new TacticalSkills();
-
-        // 清理格式
-        content = content.replaceAll("[\r\n]+", "\n").trim();
-
-        // 简单解析
-        String[] lines = content.split("\n");
-        for (String line : lines) {
-            line = line.trim();
-            if (line.startsWith("【流派】")) {
-                skills.setDeckStrategy(line.substring(4).trim());
-            } else if (line.startsWith("【策略】")) {
-                if (skills.getDeckStrategy() == null) {
-                    skills.setDeckStrategy(line.substring(4).trim());
-                }
-            }
-        }
-
-        if (skills.getDeckStrategy() == null) {
-            skills.setDeckStrategy(content);
-        }
-
-        skills.setSkills(new ArrayList<>());
-        skills.setPriorityTargets(new ArrayList<>());
-
-        return skills;
     }
 
     /**
@@ -277,7 +254,7 @@ public class SkillAgent implements Agent<SkillRequest, TacticalSkills> {
 
     private TacticalSkills createDefaultTacticalSkills(String error) {
         TacticalSkills skills = new TacticalSkills();
-        skills.setDeckStrategy(error);
+        skills.setRawOutput(error);
         skills.setSkills(new ArrayList<>());
         skills.setPriorityTargets(new ArrayList<>());
         return skills;
