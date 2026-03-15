@@ -7,7 +7,6 @@ import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.monsters.AbstractMonster;
 import com.megacrit.cardcrawl.powers.AbstractPower;
 import com.stsaiadvisor.model.*;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -69,34 +68,6 @@ public class BattleStateCapture {
             e.printStackTrace();
             return null;
         }
-    }
-
-    /**
-     * 兼容旧接口：返回BattleContext
-     */
-    public BattleContext capture() {
-        SceneContext sceneContext = captureSceneContext();
-        if (sceneContext == null) {
-            return null;
-        }
-        return toBattleContext(sceneContext);
-    }
-
-    /**
-     * SceneContext转BattleContext（兼容旧代码）
-     */
-    private BattleContext toBattleContext(SceneContext sc) {
-        BattleContext bc = new BattleContext();
-        bc.setScenario(sc.getScenario());
-        bc.setPlayer(sc.getPlayer());
-        bc.setHand(sc.getHand());
-        bc.setDrawPile(sc.getDrawPile());
-        bc.setDiscardPile(sc.getDiscardPile());
-        bc.setEnemies(sc.getEnemies());
-        bc.setRelics(sc.getRelics());
-        bc.setTurn(sc.getTurn());
-        bc.setAct(sc.getAct());
-        return bc;
     }
 
     /**
@@ -191,16 +162,25 @@ public class BattleStateCapture {
         state.setGold(player.gold);
         state.setCharacterClass(player.chosenClass != null ? player.chosenClass.name() : "UNKNOWN");
 
-        // 捕获玩家能力/buff/debuff
+        // 捕获玩家能力/buff/debuff（包含效果描述）
         List<String> powers = new ArrayList<>();
         if (player.powers != null) {
             for (AbstractPower power : player.powers) {
                 if (power != null && power.name != null) {
-                    String powerDesc = power.name;
+                    StringBuilder powerInfo = new StringBuilder();
+                    powerInfo.append(power.name);
+
+                    // 添加数值
                     if (power.amount != 0) {
-                        powerDesc += " (" + power.amount + ")";
+                        powerInfo.append(" (").append(power.amount).append(")");
                     }
-                    powers.add(powerDesc);
+
+                    // 添加效果描述
+                    if (power.description != null && !power.description.isEmpty()) {
+                        powerInfo.append("【").append(power.description).append("】");
+                    }
+
+                    powers.add(powerInfo.toString());
                 }
             }
         }
@@ -309,12 +289,27 @@ public class BattleStateCapture {
         state.setName(card.name);
         state.setCost(card.costForTurn);
         state.setType(card.type != null ? card.type.name() : "UNKNOWN");
-        state.setDamage(card.baseDamage);
-        state.setBlock(card.baseBlock);
+
+        // 使用计算后的实际值（包含力量加成等）
+        state.setDamage(card.damage);
+        state.setBlock(card.block);
         state.setUpgraded(card.upgraded);
         state.setEthereal(card.isEthereal);
         state.setExhausts(card.exhaust);
-        state.setDescription(card.rawDescription);
+
+        // 替换描述中的动态数值占位符
+        String description = card.rawDescription;
+        if (description != null) {
+            // !D! = 伤害值
+            description = description.replace("!D!", String.valueOf(card.damage));
+
+            // !B! = 格挡值
+            description = description.replace("!B!", String.valueOf(card.block));
+
+            // !M! = 魔法数值
+            description = description.replace("!M!", String.valueOf(card.magicNumber));
+        }
+        state.setDescription(description);
         state.setCardIndex(index);
 
         // Keywords
@@ -465,12 +460,25 @@ public class BattleStateCapture {
         intents.add(intent);
         state.setIntents(intents);
 
-        // Capture powers/debuffs
+        // Capture powers/debuffs with descriptions
         List<String> powers = new ArrayList<>();
         if (monster.powers != null) {
             for (AbstractPower power : monster.powers) {
                 if (power != null && power.name != null) {
-                    powers.add(power.name + (power.amount != 0 ? " (" + power.amount + ")" : ""));
+                    StringBuilder powerInfo = new StringBuilder();
+                    powerInfo.append(power.name);
+
+                    // 添加数值
+                    if (power.amount != 0) {
+                        powerInfo.append(" (").append(power.amount).append(")");
+                    }
+
+                    // 添加效果描述（提供术语解释）
+                    if (power.description != null && !power.description.isEmpty()) {
+                        powerInfo.append("【").append(power.description).append("】");
+                    }
+
+                    powers.add(powerInfo.toString());
                 }
             }
         }
@@ -480,17 +488,22 @@ public class BattleStateCapture {
     }
 
     /**
-     * Capture relic names.
+     * Capture relic information with descriptions.
      */
-    private List<String> captureRelics() {
-        List<String> relics = new ArrayList<>();
+    private List<RelicState> captureRelics() {
+        List<RelicState> relics = new ArrayList<>();
         if (AbstractDungeon.player == null || AbstractDungeon.player.relics == null) {
             return relics;
         }
 
         for (com.megacrit.cardcrawl.relics.AbstractRelic relic : AbstractDungeon.player.relics) {
             if (relic != null && relic.name != null) {
-                relics.add(relic.name);
+                RelicState state = new RelicState();
+                state.setId(relic.relicId);
+                state.setName(relic.name);
+                state.setDescription(relic.description);
+                state.setCounter(relic.counter);
+                relics.add(state);
             }
         }
         return relics;
@@ -500,7 +513,7 @@ public class BattleStateCapture {
      * Get a summary string for logging.
      */
     public String getSummary() {
-        BattleContext ctx = capture();
+        SceneContext ctx = captureSceneContext();
         if (ctx == null) {
             return "Not in battle";
         }

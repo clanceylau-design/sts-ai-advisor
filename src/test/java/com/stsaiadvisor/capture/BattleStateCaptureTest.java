@@ -24,7 +24,7 @@ public class BattleStateCaptureTest {
     @Test
     public void testCaptureReturnsNullOutsideBattle() {
         BattleStateCapture capture = new BattleStateCapture();
-        assertNull("Should return null when not in battle", capture.capture());
+        assertNull("Should return null when not in battle", capture.captureSceneContext());
     }
 
     @Ignore("Requires game runtime classes (AbstractDungeon) which are compileOnly")

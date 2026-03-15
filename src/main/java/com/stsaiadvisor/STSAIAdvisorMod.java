@@ -9,12 +9,11 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpireInitializer;
-import com.stsaiadvisor.agent.SceneOrchestrator;
+import com.stsaiadvisor.agent.GameAgent;
 import com.stsaiadvisor.config.LocalConfig;
 import com.stsaiadvisor.config.ModConfig;
 import com.stsaiadvisor.event.EventManager;
-import com.stsaiadvisor.llm.LLMClient;
-import com.stsaiadvisor.llm.LLMClientFactory;
+import com.stsaiadvisor.tool.*;
 import com.stsaiadvisor.overlay.OverlayClient;
 import com.stsaiadvisor.ui.RecommendationPanel;
 import com.stsaiadvisor.util.Constants;
@@ -38,13 +37,20 @@ import java.nio.charset.StandardCharsets;
  *   <li>Overlay 模式（默认）：独立的 Electron 悬浮窗口，通过 HTTP 通信</li>
  *   <li>Panel 模式（备用）：游戏内嵌面板</li>
  * </ul>
+ *
+ * <p>架构：
+ * <ul>
+ *   <li>GameAgent：单Agent处理所有场景</li>
+ *   <li>ToolRegistry：工具注册中心</li>
+ *   <li>GameContext：游戏状态访问上下文</li>
+ * </ul>
  */
 @SpireInitializer
 public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubscriber, PostUpdateSubscriber {
 
     private static ModConfig config;
-    private static LLMClient llmClient;
-    private static SceneOrchestrator orchestrator;
+    private static GameAgent gameAgent;
+    private static ToolRegistry toolRegistry;
     private static RecommendationPanel panel;
     private static EventManager eventManager;
     private static OverlayClient overlayClient;
@@ -83,19 +89,20 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
         config = ModConfig.load();
         System.out.println("[AI Advisor] Config loaded. API configured: " + config.isConfigured());
 
-        // Initialize LLM client (kept for backward compatibility)
-        llmClient = LLMClientFactory.createClient(config);
-        System.out.println("[AI Advisor] LLM client created: " + llmClient.getClientName());
+        // Initialize Overlay client
+        overlayClient = new OverlayClient();
 
-        // Initialize Scene Orchestrator
-        orchestrator = new SceneOrchestrator(config);
-        System.out.println("[AI Advisor] Scene Orchestrator initialized");
+        // Initialize Tool Registry and register all tools
+        toolRegistry = new ToolRegistry();
+        registerTools();
+        System.out.println("[AI Advisor] Tool Registry initialized with " + toolRegistry.size() + " tools");
+
+        // Initialize GameAgent
+        gameAgent = new GameAgent(config, toolRegistry, overlayClient);
+        System.out.println("[AI Advisor] GameAgent initialized");
 
         // Initialize UI
         panel = new RecommendationPanel();
-
-        // Initialize Overlay client and auto-start
-        overlayClient = new OverlayClient();
 
         // 尝试启动 Overlay
         if (!overlayClient.isAvailable()) {
@@ -114,8 +121,8 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
             System.err.println("[AI Advisor] Please run: cd overlay && npm start");
         }
 
-        // Register event listeners (now uses SceneOrchestrator)
-        eventManager = new EventManager(orchestrator);
+        // Register event listeners
+        eventManager = new EventManager(gameAgent);
 
         // Register mod badge
         registerModBadge();
@@ -123,6 +130,21 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
         System.out.println("[AI Advisor] Mod loaded successfully!");
         System.out.println("[AI Advisor] Press F4 to toggle the panel");
         System.out.println("[AI Advisor] Press F3 to request advice manually");
+    }
+
+    /**
+     * 注册所有工具
+     */
+    private void registerTools() {
+        toolRegistry.register(new GetPlayerStateTool());
+        toolRegistry.register(new GetHandCardsTool());
+        toolRegistry.register(new GetEnemiesTool());
+        toolRegistry.register(new GetDeckTool());
+        toolRegistry.register(new GetRelicsTool());
+        toolRegistry.register(new GetPotionsTool());
+        toolRegistry.register(new GetCardRewardsTool());
+        toolRegistry.register(new GetEventOptionsTool());
+        toolRegistry.register(new GetTacticalKnowledgeTool());
     }
 
     /**
@@ -190,12 +212,12 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
         return config;
     }
 
-    public static LLMClient getLLMClient() {
-        return llmClient;
+    public static GameAgent getGameAgent() {
+        return gameAgent;
     }
 
-    public static SceneOrchestrator getOrchestrator() {
-        return orchestrator;
+    public static ToolRegistry getToolRegistry() {
+        return toolRegistry;
     }
 
     public static RecommendationPanel getPanel() {
@@ -285,13 +307,12 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
     }
 
     /**
-     * Reinitialize the LLM client and orchestrator (call after config changes).
+     * Reinitialize the GameAgent (call after config changes).
      */
     public static void reinitializeClient() {
         if (config != null) {
-            llmClient = LLMClientFactory.createClient(config);
-            orchestrator = new SceneOrchestrator(config);
-            System.out.println("[AI Advisor] LLM client and orchestrator reinitialized: " + llmClient.getClientName());
+            gameAgent = new GameAgent(config, toolRegistry, overlayClient);
+            System.out.println("[AI Advisor] GameAgent reinitialized");
         }
     }
 }

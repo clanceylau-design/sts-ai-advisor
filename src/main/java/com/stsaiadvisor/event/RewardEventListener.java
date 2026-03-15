@@ -3,11 +3,9 @@ package com.stsaiadvisor.event;
 import basemod.BaseMod;
 import basemod.interfaces.PostUpdateSubscriber;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
+import com.stsaiadvisor.agent.GameAgent;
+import com.stsaiadvisor.context.GameContext;
 import com.stsaiadvisor.STSAIAdvisorMod;
-import com.stsaiadvisor.agent.SceneOrchestrator;
-import com.stsaiadvisor.capture.RewardSceneCapture;
-import com.stsaiadvisor.model.SceneContext;
-import com.stsaiadvisor.model.SceneRecommendation;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -23,19 +21,14 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>触发时机：战斗胜利后进入卡牌奖励选择界面
  *
- * @see RewardSceneCapture
- * @see SceneOrchestrator
+ * @see GameAgent
+ * @see GameContext
  */
 public class RewardEventListener implements PostUpdateSubscriber {
 
-    /** 奖励场景状态捕获器 */
-    private final RewardSceneCapture rewardCapture;
-
-    /** 场景编排器 */
-    private final SceneOrchestrator orchestrator;
-
-    /** 待处理的请求 */
-    private CompletableFuture<SceneRecommendation> pendingRequest;
+    private final GameContext gameContext;
+    private final GameAgent gameAgent;
+    private CompletableFuture<Void> pendingRequest;
 
     /** 上一帧是否在奖励界面 */
     private boolean wasInReward = false;
@@ -46,11 +39,11 @@ public class RewardEventListener implements PostUpdateSubscriber {
     /**
      * 构造函数
      *
-     * @param orchestrator 场景编排器
+     * @param gameAgent 游戏代理
      */
-    public RewardEventListener(SceneOrchestrator orchestrator) {
-        this.rewardCapture = new RewardSceneCapture();
-        this.orchestrator = orchestrator;
+    public RewardEventListener(GameAgent gameAgent) {
+        this.gameContext = new GameContext();
+        this.gameAgent = gameAgent;
         BaseMod.subscribe(this);
         System.out.println("[RewardEventListener] Registered");
     }
@@ -63,13 +56,12 @@ public class RewardEventListener implements PostUpdateSubscriber {
     @Override
     public void receivePostUpdate() {
         // 检测是否在卡牌奖励界面
-        boolean inReward = rewardCapture.isInCardReward();
+        boolean inReward = gameContext.getRewardCapture().isInCardReward();
 
         // 检测进入奖励界面
         if (inReward && !wasInReward) {
             System.out.println("[RewardEventListener] Entered card reward screen");
             hasRequestedCurrentReward = false;
-            // Overlay 始终保持显示，不需要手动 show
         }
 
         // 检测离开奖励界面
@@ -79,7 +71,7 @@ public class RewardEventListener implements PostUpdateSubscriber {
             // 清理待处理请求
             pendingRequest = null;
 
-            // 清空 Overlay 内容（不隐藏窗口）
+            // 清空 Overlay 内容
             if (STSAIAdvisorMod.isOverlayMode()) {
                 STSAIAdvisorMod.getOverlayClient().clear();
             }
@@ -87,7 +79,6 @@ public class RewardEventListener implements PostUpdateSubscriber {
 
         // 在奖励界面且未请求过，自动请求分析
         if (inReward && !hasRequestedCurrentReward) {
-            // 稍作延迟，等待UI完全加载
             requestRewardAdvice();
             hasRequestedCurrentReward = true;
         }
@@ -99,7 +90,7 @@ public class RewardEventListener implements PostUpdateSubscriber {
      * 手动请求奖励建议
      */
     public void requestManualAdvice() {
-        if (!rewardCapture.isInCardReward()) {
+        if (!gameContext.getRewardCapture().isInCardReward()) {
             System.out.println("[RewardEventListener] Not in card reward screen");
             return;
         }
@@ -116,45 +107,34 @@ public class RewardEventListener implements PostUpdateSubscriber {
             return;
         }
 
-        // 捕获场景上下文
-        SceneContext context = rewardCapture.capture();
-        if (context == null) {
+        // 刷新游戏上下文
+        if (!gameContext.refreshContext()) {
             System.out.println("[RewardEventListener] Failed to capture context");
             return;
         }
 
+        if (!gameContext.isInCardReward()) {
+            System.out.println("[RewardEventListener] Not in reward after refresh");
+            return;
+        }
+
         // 检查可选卡牌
-        @SuppressWarnings("unchecked")
-        java.util.List<com.stsaiadvisor.model.CardState> rewardCards =
-            context.getSceneData("rewardCards");
-        if (rewardCards == null || rewardCards.isEmpty()) {
+        if (gameContext.getCardRewards().isEmpty()) {
             System.out.println("[RewardEventListener] No reward cards available");
             return;
         }
 
-        System.out.println("[RewardEventListener] Requesting advice for " + rewardCards.size() + " cards");
-
-        // 推送 loading 状态到 Overlay
-        if (STSAIAdvisorMod.isOverlayMode()) {
-            STSAIAdvisorMod.getOverlayClient().loading("分析中...");
-        }
+        System.out.println("[RewardEventListener] Requesting advice for " + gameContext.getCardRewards().size() + " cards");
 
         // 发起异步请求
-        pendingRequest = orchestrator.processAsync(context);
-        pendingRequest.thenAccept(rec -> {
-            if (rec != null) {
-                System.out.println("[RewardEventListener] Got recommendation");
-
-                // 推送到 Overlay
-                if (STSAIAdvisorMod.isOverlayMode()) {
-                    STSAIAdvisorMod.getOverlayClient().update(rec.toRecommendation(), "reward");
-                }
+        String userPrompt = GameAgent.getDefaultUserPrompt("reward");
+        pendingRequest = gameAgent.process(userPrompt, gameContext);
+        pendingRequest.whenComplete((v, e) -> {
+            if (e != null) {
+                System.err.println("[RewardEventListener] Error: " + e.getMessage());
             } else {
-                System.out.println("[RewardEventListener] No recommendation returned");
+                System.out.println("[RewardEventListener] Analysis completed");
             }
-        }).exceptionally(e -> {
-            System.err.println("[RewardEventListener] Error: " + e.getMessage());
-            return null;
         });
     }
 
@@ -162,6 +142,6 @@ public class RewardEventListener implements PostUpdateSubscriber {
      * 判断是否在卡牌奖励界面
      */
     public boolean isInCardReward() {
-        return rewardCapture.isInCardReward();
+        return gameContext.getRewardCapture().isInCardReward();
     }
 }

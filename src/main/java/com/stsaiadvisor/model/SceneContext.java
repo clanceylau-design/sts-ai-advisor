@@ -10,7 +10,7 @@ import java.util.Map;
  *
  * <p>职责：
  * <ul>
- *   <li>作为所有Agent的统一输入模型</li>
+ *   <li>作为GameAgent的统一输入模型</li>
  *   <li>通过scenario字段区分不同场景</li>
  *   <li>sceneData承载场景特定的数据</li>
  * </ul>
@@ -21,10 +21,6 @@ import java.util.Map;
  *   <li>reward - 卡牌奖励场景</li>
  *   <li>shop - 商店场景（预留）</li>
  * </ul>
- *
- * @see AnalysisAgent
- * @see SkillAgent
- * @see AdvisorAgent
  */
 public class SceneContext {
 
@@ -38,7 +34,7 @@ public class SceneContext {
     private List<CardState> deck;
 
     /** 遗物列表 */
-    private List<String> relics;
+    private List<RelicState> relics;
 
     /** 当前层数 */
     private int act;
@@ -81,11 +77,11 @@ public class SceneContext {
     }
     public void setDeck(List<CardState> deck) { this.deck = deck; }
 
-    public List<String> getRelics() {
+    public List<RelicState> getRelics() {
         if (relics == null) relics = new ArrayList<>();
         return relics;
     }
-    public void setRelics(List<String> relics) { this.relics = relics; }
+    public void setRelics(List<RelicState> relics) { this.relics = relics; }
 
     public int getAct() { return act; }
     public void setAct(int act) { this.act = act; }

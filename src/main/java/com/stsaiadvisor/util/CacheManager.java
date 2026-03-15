@@ -1,6 +1,6 @@
 package com.stsaiadvisor.util;
 
-import com.stsaiadvisor.model.BattleContext;
+import com.stsaiadvisor.model.SceneContext;
 import com.stsaiadvisor.model.CardState;
 import com.stsaiadvisor.model.EnemyState;
 import com.stsaiadvisor.model.Recommendation;
@@ -22,7 +22,7 @@ public class CacheManager {
     /**
      * Get a cached recommendation if available and not expired.
      */
-    public Recommendation get(BattleContext context) {
+    public Recommendation get(SceneContext context) {
         if (context == null) {
             return null;
         }
@@ -40,7 +40,7 @@ public class CacheManager {
     /**
      * Store a recommendation in the cache.
      */
-    public void put(BattleContext context, Recommendation recommendation) {
+    public void put(SceneContext context, Recommendation recommendation) {
         if (context == null || recommendation == null) {
             return;
         }
@@ -55,9 +55,9 @@ public class CacheManager {
     }
 
     /**
-     * Generate a cache key from the battle context.
+     * Generate a cache key from the scene context.
      */
-    private String generateKey(BattleContext context) {
+    private String generateKey(SceneContext context) {
         StringBuilder sb = new StringBuilder();
 
         sb.append(context.getTurn()).append(":");

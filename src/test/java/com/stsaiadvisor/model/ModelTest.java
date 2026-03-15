@@ -51,8 +51,8 @@ public class ModelTest {
     }
 
     @Test
-    public void testBattleContextSerialization() {
-        BattleContext context = new BattleContext();
+    public void testSceneContextSerialization() {
+        SceneContext context = new SceneContext();
         context.setTurn(1);
         context.setAct(2);
 
@@ -65,7 +65,7 @@ public class ModelTest {
         assertNotNull(json);
         assertTrue(json.contains("turn"));
 
-        BattleContext deserialized = GSON.fromJson(json, BattleContext.class);
+        SceneContext deserialized = GSON.fromJson(json, SceneContext.class);
         assertEquals(1, deserialized.getTurn());
         assertEquals(2, deserialized.getAct());
         assertNotNull(deserialized.getPlayer());

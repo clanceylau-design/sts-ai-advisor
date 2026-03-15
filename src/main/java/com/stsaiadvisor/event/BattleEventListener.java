@@ -8,10 +8,8 @@ import basemod.interfaces.PostUpdateSubscriber;
 import com.megacrit.cardcrawl.cards.AbstractCard;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.rooms.AbstractRoom;
-import com.stsaiadvisor.agent.SceneOrchestrator;
-import com.stsaiadvisor.capture.BattleStateCapture;
-import com.stsaiadvisor.model.SceneContext;
-import com.stsaiadvisor.model.SceneRecommendation;
+import com.stsaiadvisor.agent.GameAgent;
+import com.stsaiadvisor.context.GameContext;
 import com.stsaiadvisor.STSAIAdvisorMod;
 
 import java.util.concurrent.CompletableFuture;
@@ -26,8 +24,8 @@ import java.util.concurrent.CompletableFuture;
  *   <li>处理手动请求</li>
  * </ul>
  *
- * @see SceneOrchestrator
- * @see SceneContext
+ * @see GameAgent
+ * @see GameContext
  */
 public class BattleEventListener implements
         OnStartBattleSubscriber,
@@ -35,9 +33,9 @@ public class BattleEventListener implements
         PostDrawSubscriber,
         PostUpdateSubscriber {
 
-    private final BattleStateCapture stateCapture;
-    private final SceneOrchestrator orchestrator;
-    private CompletableFuture<SceneRecommendation> pendingRequest;
+    private final GameContext gameContext;
+    private final GameAgent gameAgent;
+    private CompletableFuture<Void> pendingRequest;
 
     // Track last draw time to detect when drawing is complete
     private long lastDrawTime = 0;
@@ -50,13 +48,13 @@ public class BattleEventListener implements
     /**
      * 构造函数
      *
-     * @param orchestrator 场景编排器
+     * @param gameAgent 游戏代理
      */
-    public BattleEventListener(SceneOrchestrator orchestrator) {
-        this.stateCapture = new BattleStateCapture();
-        this.orchestrator = orchestrator;
+    public BattleEventListener(GameAgent gameAgent) {
+        this.gameContext = new GameContext();
+        this.gameAgent = gameAgent;
         BaseMod.subscribe(this);
-        System.out.println("[BattleEventListener] Registered with Scene Orchestrator");
+        System.out.println("[BattleEventListener] Registered with GameAgent");
     }
 
     @Override
@@ -65,7 +63,6 @@ public class BattleEventListener implements
         lastAnalysisTurn = -1;
         lastDrawTime = 0;
         waitingForDrawComplete = false;
-        // Overlay 始终保持显示，不需要手动 show
     }
 
     @Override
@@ -75,7 +72,7 @@ public class BattleEventListener implements
         pendingRequest = null;
         waitingForDrawComplete = false;
 
-        // 清空 Overlay 内容（不隐藏窗口）
+        // 清空 Overlay 内容
         if (STSAIAdvisorMod.isOverlayMode()) {
             STSAIAdvisorMod.getOverlayClient().clear();
         }
@@ -122,7 +119,7 @@ public class BattleEventListener implements
      * 手动请求建议
      */
     public void requestManualAdvice() {
-        if (!stateCapture.isInBattle()) {
+        if (!gameContext.getBattleCapture().isInBattle()) {
             System.out.println("[BattleEventListener] Not in battle");
             return;
         }
@@ -138,40 +135,38 @@ public class BattleEventListener implements
             return;
         }
 
-        // 使用新的SceneContext
-        SceneContext context = stateCapture.captureSceneContext();
-        if (context == null) {
+        // 清空 Overlay 内容（重新分析时清除上次的结果）
+        if (STSAIAdvisorMod.isOverlayMode()) {
+            STSAIAdvisorMod.getOverlayClient().clear();
+        }
+
+        // 刷新游戏上下文
+        if (!gameContext.refreshContext()) {
             System.out.println("[BattleEventListener] Failed to capture context");
             return;
         }
 
-        if (context.getHand() == null || context.getHand().isEmpty()) {
+        if (!gameContext.isInBattle()) {
+            System.out.println("[BattleEventListener] Not in battle after refresh");
+            return;
+        }
+
+        if (gameContext.getHandCards().isEmpty()) {
             System.out.println("[BattleEventListener] No cards in hand");
             return;
         }
 
-        System.out.println("[BattleEventListener] Requesting analysis with " + context.getHand().size() + " cards");
+        System.out.println("[BattleEventListener] Requesting analysis with " + gameContext.getHandCards().size() + " cards");
 
-        // 推送 loading 状态到 Overlay
-        if (STSAIAdvisorMod.isOverlayMode()) {
-            STSAIAdvisorMod.getOverlayClient().loading("分析中...");
-        }
-
-        pendingRequest = orchestrator.processAsync(context);
-        pendingRequest.thenAccept(rec -> {
-            if (rec != null) {
-                System.out.println("[BattleEventListener] Got recommendation");
-
-                // 推送到 Overlay
-                if (STSAIAdvisorMod.isOverlayMode()) {
-                    STSAIAdvisorMod.getOverlayClient().update(rec.toRecommendation(), "battle");
-                }
+        // 发起异步请求
+        String userPrompt = GameAgent.getDefaultUserPrompt("battle");
+        pendingRequest = gameAgent.process(userPrompt, gameContext);
+        pendingRequest.whenComplete((v, e) -> {
+            if (e != null) {
+                System.err.println("[BattleEventListener] Error: " + e.getMessage());
             } else {
-                System.out.println("[BattleEventListener] No recommendation returned");
+                System.out.println("[BattleEventListener] Analysis completed");
             }
-        }).exceptionally(e -> {
-            System.err.println("[BattleEventListener] Error: " + e.getMessage());
-            return null;
         });
     }
 
@@ -179,6 +174,6 @@ public class BattleEventListener implements
      * 判断是否在战斗中
      */
     public boolean isInBattle() {
-        return stateCapture.isInBattle();
+        return gameContext.getBattleCapture().isInBattle();
     }
 }

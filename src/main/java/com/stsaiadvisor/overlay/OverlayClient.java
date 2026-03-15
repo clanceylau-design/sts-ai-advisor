@@ -17,18 +17,12 @@ import java.nio.charset.StandardCharsets;
  *
  * <p>通信协议：
  * <ul>
- *   <li>POST /update - 更新推荐内容</li>
+ *   <li>POST /update - 更新推荐内容（结构化数据或纯文本）</li>
  *   <li>POST /loading - 显示加载状态</li>
  *   <li>POST /hide - 隐藏面板</li>
  *   <li>POST /show - 显示面板</li>
+ *   <li>POST /clear - 清空面板内容</li>
  * </ul>
- *
- * <p>使用方式：
- * <pre>
- * OverlayClient client = new OverlayClient();
- * client.update(recommendation, "battle");
- * client.loading();
- * </pre>
  */
 public class OverlayClient {
 
@@ -71,8 +65,6 @@ public class OverlayClient {
 
     /**
      * 切换 Overlay 显示/隐藏
-     *
-     * <p>如果当前可见则隐藏，如果隐藏则显示
      */
     public void toggle() {
         if (!enabled) return;
@@ -94,7 +86,7 @@ public class OverlayClient {
     }
 
     /**
-     * 更新推荐内容
+     * 更新推荐内容（结构化数据）
      *
      * @param recommendation 推荐数据
      * @param scenario 场景类型：battle / reward
@@ -125,6 +117,23 @@ public class OverlayClient {
     }
 
     /**
+     * 更新推荐内容（纯文本）
+     *
+     * @param text 文本内容（Markdown格式）
+     */
+    public void sendUpdate(String text) {
+        if (!enabled || text == null) {
+            System.out.println("[OverlayClient] sendUpdate skipped: enabled=" + enabled + ", text=" + (text == null ? "null" : "not null"));
+            return;
+        }
+
+        TextUpdate data = new TextUpdate();
+        data.text = text;
+        System.out.println("[OverlayClient] Sending update, text length: " + text.length());
+        post("/update", data);
+    }
+
+    /**
      * 显示加载状态
      */
     public void loading() {
@@ -137,7 +146,7 @@ public class OverlayClient {
      *
      * @param text 加载文字
      */
-    public void loading(String text) {
+    public void sendLoading(String text) {
         if (!enabled) return;
         LoadingData data = new LoadingData();
         data.loadingText = text;
@@ -209,13 +218,15 @@ public class OverlayClient {
             conn.setReadTimeout(200);
 
             String json = gson.toJson(data);
+            System.out.println("[OverlayClient] POST " + path + " JSON: " + json.substring(0, Math.min(200, json.length())));
 
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(json.getBytes(StandardCharsets.UTF_8));
             }
 
             // 读取响应（忽略内容）
-            conn.getResponseCode();
+            int responseCode = conn.getResponseCode();
+            System.out.println("[OverlayClient] Response code: " + responseCode);
             conn.disconnect();
 
         } catch (IOException e) {
@@ -248,5 +259,10 @@ public class OverlayClient {
     /** 加载数据 */
     private static class LoadingData {
         String loadingText;
+    }
+
+    /** 纯文本更新 */
+    private static class TextUpdate {
+        String text;
     }
 }

@@ -224,3 +224,97 @@ body {
     40% { content: '..'; }
     60%, 100% { content: '...'; }
 }
+
+/* ============================================================
+   流式输出样式
+   ============================================================ */
+
+/* 工具调用区域 */
+.tool-calls {
+    margin-bottom: 12px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+/* 工具状态 */
+.tool-status {
+    font-size: 12px;
+    padding: 2px 0;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.tool-status.tool-running {
+    color: #ffd700;
+}
+
+.tool-status.tool-success {
+    color: #7fff7f;
+}
+
+.tool-status.tool-error {
+    color: #ff7f7f;
+}
+
+/* 流式内容区域 */
+.stream-content {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.stream-content p {
+    margin-bottom: 8px;
+}
+
+.stream-content h2 {
+    color: #ffd700;
+    font-size: 15px;
+    margin: 12px 0 8px 0;
+}
+
+.stream-content h3 {
+    color: #8ecae6;
+    font-size: 14px;
+    margin: 10px 0 6px 0;
+}
+
+.stream-content h4 {
+    color: #a8d8ff;
+    font-size: 13px;
+    margin: 8px 0 4px 0;
+}
+
+.stream-content code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #7fff7f;
+}
+
+.stream-content pre {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 8px 0;
+}
+
+.stream-content pre code {
+    background: none;
+    padding: 0;
+}
+
+.stream-content strong {
+    color: #ffd700;
+}
+
+.stream-content em {
+    color: #8ecae6;
+}
+
+.stream-content li {
+    margin-left: 16px;
+    margin-bottom: 4px;
+}

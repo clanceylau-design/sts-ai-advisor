@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * SceneRecommendation - AdvisorAgent统一输出模型
+ * SceneRecommendation - 场景推荐输出模型
  *
  * <p>职责：
  * <ul>
- *   <li>作为AdvisorAgent对所有场景的统一输出</li>
+ *   <li>作为GameAgent对所有场景的统一输出</li>
  *   <li>通过scenario字段区分不同场景的建议</li>
  * </ul>
  *
@@ -18,7 +18,6 @@ import java.util.List;
  *   <li>reward: 选牌建议</li>
  * </ul>
  *
- * @see AdvisorAgent
  * @see FinalRecommendation
  */
 public class SceneRecommendation {

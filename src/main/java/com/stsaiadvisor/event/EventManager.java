@@ -3,7 +3,7 @@ package com.stsaiadvisor.event;
 import basemod.BaseMod;
 import basemod.interfaces.PostUpdateSubscriber;
 import com.stsaiadvisor.STSAIAdvisorMod;
-import com.stsaiadvisor.agent.SceneOrchestrator;
+import com.stsaiadvisor.agent.GameAgent;
 import com.stsaiadvisor.overlay.OverlayClient;
 import com.stsaiadvisor.ui.KeyInputListener;
 
@@ -33,16 +33,16 @@ public class EventManager implements PostUpdateSubscriber {
     /**
      * 构造函数
      *
-     * @param orchestrator 场景编排器
+     * @param gameAgent 游戏代理
      */
-    public EventManager(SceneOrchestrator orchestrator) {
+    public EventManager(GameAgent gameAgent) {
         BaseMod.subscribe(this);
 
         // 战斗场景监听器
-        battleEventListener = new BattleEventListener(orchestrator);
+        battleEventListener = new BattleEventListener(gameAgent);
 
         // 奖励场景监听器
-        rewardEventListener = new RewardEventListener(orchestrator);
+        rewardEventListener = new RewardEventListener(gameAgent);
 
         // 热键监听器
         keyInputListener = new KeyInputListener();

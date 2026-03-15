@@ -172,15 +172,20 @@ public class RewardSceneCapture {
     /**
      * 捕获遗物列表
      */
-    private List<String> captureRelics() {
-        List<String> relics = new ArrayList<>();
+    private List<RelicState> captureRelics() {
+        List<RelicState> relics = new ArrayList<>();
         if (AbstractDungeon.player == null || AbstractDungeon.player.relics == null) {
             return relics;
         }
 
         for (com.megacrit.cardcrawl.relics.AbstractRelic relic : AbstractDungeon.player.relics) {
             if (relic != null && relic.name != null) {
-                relics.add(relic.name);
+                RelicState state = new RelicState();
+                state.setId(relic.relicId);
+                state.setName(relic.name);
+                state.setDescription(relic.description);
+                state.setCounter(relic.counter);
+                relics.add(state);
             }
         }
         return relics;

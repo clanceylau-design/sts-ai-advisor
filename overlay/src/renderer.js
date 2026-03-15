@@ -50,10 +50,17 @@ let currentScenario = CONFIG.defaultScenario;
  *     reasoning: '策略说明',
  *     suggestions: [
  *       { cardIndex: 0, cardName: '卡牌名', priority: 1, reason: '理由', targetName: '目标' }
- *     ]
+ *     ],
+ *     text: '纯文本内容（Markdown格式）'
  *   }
  */
 function renderRecommendation(data) {
+    // 如果有纯文本字段，直接渲染为Markdown
+    if (data.text) {
+        panelContent.innerHTML = renderMarkdown(data.text);
+        return;
+    }
+
     // 更新场景类型
     if (data.scenario) {
         currentScenario = data.scenario;
@@ -145,6 +152,46 @@ function renderLoading(data = {}) {
  */
 function renderStatus(message) {
     panelContent.innerHTML = `<div class="status-message">${escapeHtml(message)}</div>`;
+}
+
+/**
+ * 简单的 Markdown 渲染
+ *
+ * @param {string} text - Markdown 文本
+ * @returns {string} HTML
+ */
+function renderMarkdown(text) {
+    if (!text) return '';
+
+    // 转义 HTML
+    let html = escapeHtml(text);
+
+    // 代码块
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+
+    // 行内代码
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // 粗体
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // 斜体
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // 标题
+    html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+
+    // 列表
+    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+
+    // 换行
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = html.replace(/\n/g, '<br>');
+
+    return '<p>' + html + '</p>';
 }
 
 // ============================================================
@@ -273,9 +320,6 @@ function registerEventListeners() {
     // 监听推荐数据更新
     window.overlayApi.onUpdate((data) => {
         console.log('[Renderer] 收到更新数据:', data);
-        console.log('[Renderer] companionMessage:', data.companionMessage);
-        console.log('[Renderer] reasoning:', data.reasoning);
-        console.log('[Renderer] suggestions:', JSON.stringify(data.suggestions, null, 2));
         renderRecommendation(data);
     });
 
