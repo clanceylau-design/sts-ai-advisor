@@ -28,6 +28,11 @@ public class GetDeckTool implements GameTool {
     }
 
     @Override
+    public InfoType getInfoType() {
+        return InfoType.STABLE;
+    }
+
+    @Override
     public JsonObject getParametersSchema() {
         JsonObject schema = new JsonObject();
         schema.addProperty("type", "object");

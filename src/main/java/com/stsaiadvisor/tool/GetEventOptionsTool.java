@@ -25,6 +25,11 @@ public class GetEventOptionsTool implements GameTool {
     }
 
     @Override
+    public InfoType getInfoType() {
+        return InfoType.ON_DEMAND;
+    }
+
+    @Override
     public JsonObject getParametersSchema() {
         JsonObject schema = new JsonObject();
         schema.addProperty("type", "object");

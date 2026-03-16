@@ -124,11 +124,30 @@ curl -X POST http://localhost:17532/show
 ## 打包发布
 
 ```bash
-# 打包为便携版 exe
+# 打包为便携版 exe（输出到 dist/ 目录）
 npm run build
+
+# 一键打包并部署到游戏目录
+npm run deploy
 ```
 
-输出文件在 `dist/` 目录下。
+`npm run deploy` 会：
+1. 打包生成 `dist/overlay.exe`
+2. 自动复制到 `D:\SteamLibrary\steamapps\common\SlayTheSpire\mods\sts-ai-advisor\overlay.exe`
+
+## 使用流程
+
+1. 启动游戏（Mod 会自动启动）
+2. 启动 Overlay（手动启动或由 Mod 自动启动）
+3. **F4**: 切换 Overlay 显示/隐藏
+4. **F3**: 请求 AI 建议（支持任意场景）
+
+## 通信端口
+
+| 组件 | 端口 | 用途 |
+|------|------|------|
+| Mod HTTP Server | 17533 | 接收 Overlay 的触发请求 |
+| Overlay HTTP Server | 17532 | 接收 Mod 的内容推送 |
 
 ## 项目结构
 

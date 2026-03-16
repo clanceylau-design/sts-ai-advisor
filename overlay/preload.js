@@ -13,69 +13,107 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 /**
- * 暴露给渲染进程的 API
- *
- * 使用方式（在 renderer.js 中）：
- *   window.overlayApi.onUpdate((data) => { ... })
- *   window.overlayApi.dragWindow(deltaX, deltaY)
+ * 安全日志函数
  */
+function safePreloadLog(...args) {
+    try {
+        process.stdout.write('[Preload] ' + args.join(' ') + '\n');
+    } catch (e) {
+        // 静默忽略
+    }
+}
+
+/**
+ * 安全的 IPC 发送函数，捕获错误
+ */
+function safeIpcSend(channel, data) {
+    try {
+        ipcRenderer.send(channel, data);
+    } catch (e) {
+        safePreloadLog('IPC send error:', e.message);
+    }
+}
+
+/**
+ * 安全的 IPC 监听封装
+ */
+function safeOn(channel, callback) {
+    ipcRenderer.on(channel, (event, data) => {
+        try {
+            callback(data);
+        } catch (e) {
+            safePreloadLog(channel + ' callback error:', e.message);
+        }
+    });
+}
+
 contextBridge.exposeInMainWorld('overlayApi', {
 
-    /**
-     * 监听推荐数据更新
-     *
-     * @param {Function} callback - 回调函数，接收推荐数据
-     */
-    onUpdate: (callback) => {
-        ipcRenderer.on('update', (event, data) => {
-            callback(data);
-        });
+    // ---- 历史消息协议 ----
+
+    /** 请求初始消息 */
+    requestInit: () => {
+        safeIpcSend('history-init');
     },
 
-    /**
-     * 监听加载状态
-     *
-     * @param {Function} callback - 回调函数
-     */
-    onLoading: (callback) => {
-        ipcRenderer.on('loading', (event, data) => {
-            callback(data);
-        });
+    /** 初始消息列表 */
+    onHistoryInit: (callback) => {
+        safeOn('history-init', callback);
     },
 
-    /**
-     * 监听清空内容
-     *
-     * @param {Function} callback - 回调函数
-     */
-    onClear: (callback) => {
-        ipcRenderer.on('clear', () => {
-            callback();
-        });
+    /** 新消息追加 */
+    onHistoryAppend: (callback) => {
+        safeOn('history-append', callback);
     },
 
-    /**
-     * 请求移动窗口
-     *
-     * @param {number} deltaX - X 方向移动距离
-     * @param {number} deltaY - Y 方向移动距离
-     */
+    /** 末尾消息更新（loading 原地更新 / loading→result 替换） */
+    onHistoryUpdate: (callback) => {
+        safeOn('history-update', callback);
+    },
+
+    /** 历史清空 */
+    onHistoryClear: (callback) => {
+        safeOn('history-clear', callback);
+    },
+
+    /** 请求加载更早的消息 */
+    loadMore: (beforeId) => {
+        safeIpcSend('load-more', { beforeId });
+    },
+
+    /** 接收预加载的旧消息 */
+    onHistoryPrepend: (callback) => {
+        safeOn('history-prepend', callback);
+    },
+
+    // ---- 窗口操作 ----
+
     dragWindow: (deltaX, deltaY) => {
-        ipcRenderer.send('window-drag', { deltaX, deltaY });
+        safeIpcSend('window-drag', { deltaX, deltaY });
     },
 
-    /**
-     * 请求最小化窗口
-     */
-    minimizeWindow: () => {
-        ipcRenderer.send('window-minimize');
+    closeWindow: () => {
+        safeIpcSend('window-close');
     },
 
-    /**
-     * 移除所有监听器（清理用）
-     */
+    // ---- 自定义提示词 ----
+
+    sendCustomPrompt: (prompt) => {
+        safePreloadLog('sendCustomPrompt called');
+        safeIpcSend('custom-prompt', { prompt });
+    },
+
+    // ---- 清理 ----
+
     removeAllListeners: () => {
-        ipcRenderer.removeAllListeners('update');
-        ipcRenderer.removeAllListeners('loading');
+        try {
+            const channels = [
+                'history-init', 'history-append', 'history-update',
+                'history-clear', 'history-prepend'
+            ];
+            channels.forEach(ch => ipcRenderer.removeAllListeners(ch));
+        } catch (e) {
+            safePreloadLog('removeAllListeners error:', e.message);
+        }
     }
 });

@@ -26,6 +26,11 @@ public class GetHandCardsTool implements GameTool {
     }
 
     @Override
+    public InfoType getInfoType() {
+        return InfoType.REALTIME;
+    }
+
+    @Override
     public JsonObject getParametersSchema() {
         JsonObject schema = new JsonObject();
         schema.addProperty("type", "object");

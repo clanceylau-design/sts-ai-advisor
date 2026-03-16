@@ -63,6 +63,9 @@ public class BattleEventListener implements
         lastAnalysisTurn = -1;
         lastDrawTime = 0;
         waitingForDrawComplete = false;
+
+        // 重置GameAgent的记忆
+        gameAgent.resetMemory();
     }
 
     @Override
@@ -72,10 +75,8 @@ public class BattleEventListener implements
         pendingRequest = null;
         waitingForDrawComplete = false;
 
-        // 清空 Overlay 内容
-        if (STSAIAdvisorMod.isOverlayMode()) {
-            STSAIAdvisorMod.getOverlayClient().clear();
-        }
+        // 重置GameAgent的记忆（清空对话历史和缓存）
+        gameAgent.resetMemory();
     }
 
     @Override
@@ -135,11 +136,6 @@ public class BattleEventListener implements
             return;
         }
 
-        // 清空 Overlay 内容（重新分析时清除上次的结果）
-        if (STSAIAdvisorMod.isOverlayMode()) {
-            STSAIAdvisorMod.getOverlayClient().clear();
-        }
-
         // 刷新游戏上下文
         if (!gameContext.refreshContext()) {
             System.out.println("[BattleEventListener] Failed to capture context");
@@ -158,8 +154,35 @@ public class BattleEventListener implements
 
         System.out.println("[BattleEventListener] Requesting analysis with " + gameContext.getHandCards().size() + " cards");
 
+        // 获取自定义提示词（如果有）
+        String userPrompt = null;
+
+        // 检查 Overlay 模式
+        boolean overlayMode = STSAIAdvisorMod.isOverlayMode();
+        System.out.println("[BattleEventListener] isOverlayMode: " + overlayMode);
+
+        if (overlayMode) {
+            System.out.println("[BattleEventListener] 尝试获取自定义提示词...");
+            try {
+                userPrompt = STSAIAdvisorMod.getOverlayClient().getCustomPrompt();
+                System.out.println("[BattleEventListener] getCustomPrompt 返回: " + (userPrompt != null ? "'" + userPrompt + "'" : "null"));
+            } catch (Exception e) {
+                System.err.println("[BattleEventListener] getCustomPrompt 异常: " + e.getMessage());
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("[BattleEventListener] Overlay 模式未启用，跳过获取自定义提示词");
+        }
+
+        // 如果没有自定义提示词，使用默认提示词
+        if (userPrompt == null || userPrompt.isEmpty()) {
+            userPrompt = GameAgent.getDefaultUserPrompt("battle");
+            System.out.println("[BattleEventListener] 使用默认提示词: " + userPrompt);
+        } else {
+            System.out.println("[BattleEventListener] 使用自定义提示词: " + userPrompt);
+        }
+
         // 发起异步请求
-        String userPrompt = GameAgent.getDefaultUserPrompt("battle");
         pendingRequest = gameAgent.process(userPrompt, gameContext);
         pendingRequest.whenComplete((v, e) -> {
             if (e != null) {

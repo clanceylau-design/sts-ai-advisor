@@ -26,6 +26,11 @@ public class GetRelicsTool implements GameTool {
     }
 
     @Override
+    public InfoType getInfoType() {
+        return InfoType.STABLE;
+    }
+
+    @Override
     public JsonObject getParametersSchema() {
         JsonObject schema = new JsonObject();
         schema.addProperty("type", "object");
@@ -55,7 +60,7 @@ public class GetRelicsTool implements GameTool {
 
                     // 添加效果描述
                     if (relic.getDescription() != null && !relic.getDescription().isEmpty()) {
-                        relicObj.addProperty("description", relic.getDescription());
+                        relicObj.addProperty("description", cleanDescription(relic.getDescription()));
                     }
 
                     // 添加计数器（如果有）
@@ -75,5 +80,17 @@ public class GetRelicsTool implements GameTool {
                 return ToolResult.failure(getId(), "获取遗物失败: " + e.getMessage(), System.currentTimeMillis() - start);
             }
         });
+    }
+
+    /**
+     * 清除描述中的占位符
+     *
+     * <p>STS使用 #y、#b、#r 等占位符表示颜色，需要清除
+     */
+    private String cleanDescription(String description) {
+        if (description == null) return null;
+        // 清除 #y、#b、#r、#g 等颜色占位符
+        return description.replaceAll("#[ybgr] ?", "")
+                          .replaceAll("#b", "");  // 处理 #b 后面没有空格的情况
     }
 }

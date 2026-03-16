@@ -1,12 +1,7 @@
 /**
  * Electron 渲染进程脚本
  *
- * 职责：
- * 1. 监听来自主进程的数据更新
- * 2. 渲染推荐内容到页面
- * 3. 处理用户交互（拖拽等）
- *
- * 运行环境：浏览器渲染进程，通过 preload.js 与主进程通信
+ * IM 风格消息列表：消息累积显示，支持向上滚动加载历史
  */
 
 // ============================================================
@@ -15,240 +10,27 @@
 
 const panelContent = document.getElementById('panelContent');
 const panelHeader = document.getElementById('panelHeader');
-const btnMinimize = document.getElementById('btnMinimize');
+const btnClose = document.getElementById('btnClose');
+const customPromptInput = document.getElementById('customPromptInput');
+const btnSendPrompt = document.getElementById('btnSendPrompt');
 
 // ============================================================
-// 配置常量
+// 状态
 // ============================================================
 
-const CONFIG = {
-    /** 每行最大字符数（用于自动换行） */
-    charsPerLine: 28,
+/** 是否还有更早的历史可加载 */
+let hasMore = false;
 
-    /** 默认场景类型 */
-    defaultScenario: 'battle'
-};
+/** 当前渲染的最早消息 id（用于分页请求） */
+let earliestId = null;
 
-// ============================================================
-// 状态变量
-// ============================================================
-
-/** 当前场景类型 */
-let currentScenario = CONFIG.defaultScenario;
+/** 是否正在加载更多 */
+let loading = false;
 
 // ============================================================
-// 核心渲染函数
+// 工具函数
 // ============================================================
 
-/**
- * 渲染推荐内容
- *
- * @param {object} data - 推荐数据，结构如下：
- *   {
- *     scenario: 'battle' | 'reward',
- *     companionMessage: '鼓励消息',
- *     reasoning: '策略说明',
- *     suggestions: [
- *       { cardIndex: 0, cardName: '卡牌名', priority: 1, reason: '理由', targetName: '目标' }
- *     ],
- *     text: '纯文本内容（Markdown格式）'
- *   }
- */
-function renderRecommendation(data) {
-    // 如果有纯文本字段，直接渲染为Markdown
-    if (data.text) {
-        panelContent.innerHTML = renderMarkdown(data.text);
-        return;
-    }
-
-    // 更新场景类型
-    if (data.scenario) {
-        currentScenario = data.scenario;
-    }
-
-    // 构建 HTML
-    let html = '';
-
-    // 鼓励消息
-    if (data.companionMessage) {
-        html += `<div class="companion-message">【${escapeHtml(data.companionMessage)}】</div>`;
-    }
-
-    // 策略说明
-    if (data.reasoning) {
-        const wrappedReasoning = wrapText(data.reasoning, CONFIG.charsPerLine);
-        html += `<div class="reasoning">${escapeHtml(wrappedReasoning)}</div>`;
-    }
-
-    // 分隔线
-    if ((data.companionMessage || data.reasoning) && data.suggestions?.length) {
-        html += '<div class="divider"></div>';
-    }
-
-    // 建议列表
-    if (data.suggestions && data.suggestions.length > 0) {
-        const sectionTitle = currentScenario === 'reward' ? '选牌建议' : '出牌顺序';
-        html += `<div class="section-title">【${sectionTitle}】</div>`;
-
-        for (const suggestion of data.suggestions) {
-            html += renderSuggestion(suggestion);
-        }
-    }
-
-    // 更新 DOM
-    panelContent.innerHTML = html || '<div class="status-message">暂无建议</div>';
-}
-
-/**
- * 渲染单条建议
- *
- * @param {object} s - 建议数据
- * @returns {string} HTML 字符串
- */
-function renderSuggestion(s) {
-    const cardName = s.cardName || `卡牌${s.cardIndex}`;
-
-    if (currentScenario === 'reward') {
-        // Reward 场景：推荐/备选格式
-        const isRecommended = s.priority === 1;
-        const prefix = isRecommended ? '★ ' : '☆ ';
-        const className = isRecommended ? 'recommended' : 'alternate';
-
-        let text = `${prefix}${escapeHtml(cardName)}`;
-        if (s.reason) {
-            text += `：${escapeHtml(s.reason)}`;
-        }
-
-        const wrapped = wrapText(text, CONFIG.charsPerLine);
-        return `<div class="suggestion ${className}">${escapeHtml(wrapped)}</div>`;
-
-    } else {
-        // Battle 场景：出牌顺序格式
-        const targetName = s.targetName || '目标';
-
-        let text = `${s.priority}. ${escapeHtml(cardName)} <span class="arrow">→</span> ${escapeHtml(targetName)}`;
-        if (s.reason) {
-            text += ` <span class="reason">：${escapeHtml(s.reason)}</span>`;
-        }
-
-        return `<div class="suggestion battle">${text}</div>`;
-    }
-}
-
-/**
- * 渲染加载状态
- *
- * @param {object} data - 可选，包含 loadingText 字段
- */
-function renderLoading(data = {}) {
-    const text = data.loadingText || '分析中...';
-    panelContent.innerHTML = `<div class="loading-message">${escapeHtml(text)}</div>`;
-}
-
-/**
- * 渲染状态消息
- *
- * @param {string} message - 消息内容
- */
-function renderStatus(message) {
-    panelContent.innerHTML = `<div class="status-message">${escapeHtml(message)}</div>`;
-}
-
-/**
- * 简单的 Markdown 渲染
- *
- * @param {string} text - Markdown 文本
- * @returns {string} HTML
- */
-function renderMarkdown(text) {
-    if (!text) return '';
-
-    // 转义 HTML
-    let html = escapeHtml(text);
-
-    // 代码块
-    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-
-    // 行内代码
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-    // 粗体
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-    // 斜体
-    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-    // 标题
-    html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
-    html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
-
-    // 列表
-    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
-
-    // 换行
-    html = html.replace(/\n\n/g, '</p><p>');
-    html = html.replace(/\n/g, '<br>');
-
-    return '<p>' + html + '</p>';
-}
-
-// ============================================================
-// 文本处理工具
-// ============================================================
-
-/**
- * 自动换行
- *
- * 中文字符算 2 个宽度，英文算 1 个
- *
- * @param {string} text - 原始文本
- * @param {number} maxChars - 每行最大字符宽度
- * @returns {string} 换行后的文本
- */
-function wrapText(text, maxChars) {
-    if (!text) return '';
-
-    const lines = [];
-    const paragraphs = text.split('\n');
-
-    for (const para of paragraphs) {
-        if (!para) {
-            lines.push('');
-            continue;
-        }
-
-        let currentLine = '';
-        let charWidth = 0;
-
-        for (const char of para) {
-            const width = char.charCodeAt(0) > 127 ? 2 : 1;  // 中文 2，英文 1
-
-            if (charWidth + width > maxChars && currentLine) {
-                lines.push(currentLine);
-                currentLine = char;
-                charWidth = width;
-            } else {
-                currentLine += char;
-                charWidth += width;
-            }
-        }
-
-        if (currentLine) {
-            lines.push(currentLine);
-        }
-    }
-
-    return lines.join('\n');
-}
-
-/**
- * HTML 转义（防止 XSS）
- *
- * @param {string} text - 原始文本
- * @returns {string} 转义后的文本
- */
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -256,37 +38,184 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function formatTime(ts) {
+    const d = new Date(ts);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    const s = String(d.getSeconds()).padStart(2, '0');
+    return h + ':' + m + ':' + s;
+}
+
+/**
+ * 判断是否滚动到底部附近（允许 30px 误差）
+ */
+function isNearBottom() {
+    return panelContent.scrollHeight - panelContent.scrollTop - panelContent.clientHeight < 30;
+}
+
+/**
+ * 滚动到底部
+ */
+function scrollToBottom() {
+    panelContent.scrollTop = panelContent.scrollHeight;
+}
+
 // ============================================================
-// 用户交互处理
+// 消息 DOM 创建
 // ============================================================
 
 /**
- * 初始化拖拽功能
- *
- * 通过记录鼠标移动距离，通知主进程移动窗口
+ * 创建单条消息的 DOM 元素
  */
+function createMessageEl(msg) {
+    const el = document.createElement('div');
+    el.className = 'message ' + msg.type;
+    el.dataset.id = msg.id;
+
+    const escaped = escapeHtml(msg.text);
+    const html = escaped.replace(/\n/g, '<br>');
+
+    if (msg.type === 'prompt') {
+        el.innerHTML = '<div class="message-text">' + html + '</div>'
+            + '<div class="message-time">' + formatTime(msg.timestamp) + '</div>';
+    } else if (msg.type === 'loading') {
+        el.innerHTML = '<div class="message-indicator"></div>'
+            + '<div class="message-text">' + html + '</div>';
+    } else {
+        el.innerHTML = '<div class="message-text">' + html + '</div>'
+            + '<div class="message-time">' + formatTime(msg.timestamp) + '</div>';
+    }
+
+    return el;
+}
+
+// ============================================================
+// 消息操作
+// ============================================================
+
+/**
+ * 追加消息到底部
+ */
+function appendMessage(msg) {
+    // 移除空状态提示
+    const empty = panelContent.querySelector('.status-message');
+    if (empty) empty.remove();
+
+    const near = isNearBottom();
+    panelContent.appendChild(createMessageEl(msg));
+
+    if (!earliestId) earliestId = msg.id;
+
+    // 如果用户在底部附近，自动滚动
+    if (near) scrollToBottom();
+}
+
+/**
+ * 更新末尾消息（loading 原地更新 或 loading→result 替换）
+ */
+function updateLastMessage(msg) {
+    const last = panelContent.querySelector('.message:last-child');
+    if (!last) {
+        appendMessage(msg);
+        return;
+    }
+
+    const near = isNearBottom();
+
+    // 替换整个元素
+    const el = createMessageEl(msg);
+    last.replaceWith(el);
+
+    if (near) scrollToBottom();
+}
+
+/**
+ * 在顶部批量插入旧消息
+ */
+function prependMessages(msgs) {
+    if (!msgs.length) return;
+
+    const prevHeight = panelContent.scrollHeight;
+    const prevTop = panelContent.scrollTop;
+
+    // 移除"加载更多"提示
+    const hint = panelContent.querySelector('.load-more-hint');
+    if (hint) hint.remove();
+
+    const frag = document.createDocumentFragment();
+    for (const msg of msgs) {
+        frag.appendChild(createMessageEl(msg));
+    }
+    panelContent.insertBefore(frag, panelContent.firstChild);
+
+    earliestId = msgs[0].id;
+
+    // 如果还有更多，插入提示
+    if (hasMore) {
+        insertLoadMoreHint();
+    }
+
+    // 保持滚动位置不变
+    const added = panelContent.scrollHeight - prevHeight;
+    panelContent.scrollTop = prevTop + added;
+}
+
+/**
+ * 清空所有消息
+ */
+function clearMessages() {
+    panelContent.innerHTML = '<div class="status-message">等待游戏数据...</div>';
+    hasMore = false;
+    earliestId = null;
+    loading = false;
+}
+
+/**
+ * 插入"加载更多"提示
+ */
+function insertLoadMoreHint() {
+    if (panelContent.querySelector('.load-more-hint')) return;
+    const hint = document.createElement('div');
+    hint.className = 'load-more-hint';
+    hint.textContent = '向上滚动加载更多...';
+    panelContent.insertBefore(hint, panelContent.firstChild);
+}
+
+// ============================================================
+// 滚动分页
+// ============================================================
+
+function initScroll() {
+    panelContent.addEventListener('scroll', () => {
+        if (!hasMore || loading) return;
+        if (panelContent.scrollTop < 50 && earliestId) {
+            loading = true;
+            window.overlayApi.loadMore(earliestId);
+        }
+    });
+}
+
+// ============================================================
+// 用户交互
+// ============================================================
+
 function initDrag() {
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
 
     panelHeader.addEventListener('mousedown', (e) => {
-        // 只响应左键
         if (e.button !== 0) return;
-
         isDragging = true;
         lastX = e.screenX;
         lastY = e.screenY;
-
         e.preventDefault();
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-
         const deltaX = e.screenX - lastX;
         const deltaY = e.screenY - lastY;
-
         if (deltaX !== 0 || deltaY !== 0) {
             window.overlayApi.dragWindow(deltaX, deltaY);
             lastX = e.screenX;
@@ -299,40 +228,79 @@ function initDrag() {
     });
 }
 
-/**
- * 初始化按钮事件
- */
 function initButtons() {
-    // 最小化按钮
-    btnMinimize.addEventListener('click', () => {
-        window.overlayApi.minimizeWindow();
+    btnClose.addEventListener('click', () => {
+        window.overlayApi.closeWindow();
+    });
+
+    btnSendPrompt.addEventListener('click', () => {
+        sendCustomPrompt();
+    });
+
+    customPromptInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendCustomPrompt();
     });
 }
 
+function sendCustomPrompt() {
+    try {
+        const prompt = customPromptInput.value.trim();
+        if (!prompt) return;
+
+        try {
+            window.overlayApi.sendCustomPrompt(prompt);
+        } catch (err) {
+            console.error('[Renderer] IPC error:', err);
+            return;
+        }
+
+        customPromptInput.value = '';
+        // 消息由 main.js 追加 prompt 消息，通过 history-append 回传
+    } catch (e) {
+        console.error('[Renderer] sendCustomPrompt error:', e);
+    }
+}
+
 // ============================================================
-// 事件监听注册
+// 事件监听
 // ============================================================
 
-/**
- * 注册来自主进程的事件监听
- */
 function registerEventListeners() {
-    // 监听推荐数据更新
-    window.overlayApi.onUpdate((data) => {
-        console.log('[Renderer] 收到更新数据:', data);
-        renderRecommendation(data);
+    window.overlayApi.onHistoryInit((data) => {
+        panelContent.innerHTML = '';
+        hasMore = data.hasMore;
+        earliestId = null;
+
+        if (data.messages.length === 0) {
+            panelContent.innerHTML = '<div class="status-message">等待游戏数据...</div>';
+            return;
+        }
+
+        if (hasMore) insertLoadMoreHint();
+
+        for (const msg of data.messages) {
+            panelContent.appendChild(createMessageEl(msg));
+            if (!earliestId) earliestId = msg.id;
+        }
+        scrollToBottom();
     });
 
-    // 监听加载状态
-    window.overlayApi.onLoading((data) => {
-        console.log('[Overlay] 加载状态:', data);
-        renderLoading(data);
+    window.overlayApi.onHistoryAppend((msg) => {
+        appendMessage(msg);
     });
 
-    // 监听清空内容
-    window.overlayApi.onClear(() => {
-        console.log('[Overlay] 清空内容');
-        renderStatus('等待游戏数据...');
+    window.overlayApi.onHistoryUpdate((msg) => {
+        updateLastMessage(msg);
+    });
+
+    window.overlayApi.onHistoryClear(() => {
+        clearMessages();
+    });
+
+    window.overlayApi.onHistoryPrepend((data) => {
+        hasMore = data.hasMore;
+        prependMessages(data.messages);
+        loading = false;
     });
 }
 
@@ -341,18 +309,28 @@ function registerEventListeners() {
 // ============================================================
 
 function init() {
-    console.log('[Overlay] 初始化...');
-
-    // 注册事件监听
     registerEventListeners();
-
-    // 初始化交互
     initDrag();
     initButtons();
+    initScroll();
 
-    // 显示初始状态
-    renderStatus('等待游戏数据...');
+    // 显示初始状态，然后请求历史
+    panelContent.innerHTML = '<div class="status-message">等待游戏数据...</div>';
+    window.overlayApi.requestInit();
 }
 
-// 页面加载完成后初始化
+// ============================================================
+// 全局错误处理
+// ============================================================
+
+window.onerror = function(message, source, lineno) {
+    console.error('[Renderer] Error:', message, 'at', source, ':', lineno);
+    return true;
+};
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('[Renderer] Unhandled rejection:', event.reason);
+    event.preventDefault();
+});
+
 document.addEventListener('DOMContentLoaded', init);

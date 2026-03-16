@@ -132,14 +132,44 @@ public class BattleStateCapture {
 
     /**
      * Check if we're currently in a battle.
+     *
+     * <p>检测逻辑：
+     * <ul>
+     *   <li>玩家存在</li>
+     *   <li>房间存在且处于战斗阶段（非COMPLETE）</li>
+     *   <li>怪物列表存在且有活着的怪物</li>
+     * </ul>
      */
     public boolean isInBattle() {
         try {
-            return AbstractDungeon.player != null
-                && AbstractDungeon.getCurrRoom() != null
-                && AbstractDungeon.getCurrRoom().monsters != null
-                && !AbstractDungeon.getCurrRoom().monsters.monsters.isEmpty();
+            if (AbstractDungeon.player == null) {
+                return false;
+            }
+
+            if (AbstractDungeon.getCurrRoom() == null) {
+                return false;
+            }
+
+            // 房间处于COMPLETE状态说明战斗已结束，不在战斗中
+            if (AbstractDungeon.getCurrRoom().phase == com.megacrit.cardcrawl.rooms.AbstractRoom.RoomPhase.COMPLETE) {
+                return false;
+            }
+
+            // 检查是否有活着的怪物
+            if (AbstractDungeon.getCurrRoom().monsters == null) {
+                return false;
+            }
+
+            // 检查是否有活着的怪物（非死亡/逃跑状态）
+            for (com.megacrit.cardcrawl.monsters.AbstractMonster monster : AbstractDungeon.getCurrRoom().monsters.monsters) {
+                if (monster != null && !monster.isDeadOrEscaped()) {
+                    return true;
+                }
+            }
+
+            return false;
         } catch (Exception e) {
+            System.err.println("[BattleStateCapture] isInBattle error: " + e.getMessage());
             return false;
         }
     }
@@ -153,8 +183,19 @@ public class BattleStateCapture {
 
         state.setCurrentHealth(player.currentHealth);
         state.setMaxHealth(player.maxHealth);
-        state.setEnergy(player.energy != null ? player.energy.energy : 0);
+
+        // 使用 EnergyPanel 获取当前剩余能量
+        // EnergyPanel.totalCount 是当前可用能量
+        int currentEnergy = 0;
+        try {
+            currentEnergy = com.megacrit.cardcrawl.ui.panels.EnergyPanel.totalCount;
+        } catch (Exception e) {
+            // fallback
+            currentEnergy = player.energy != null ? player.energy.energy : 0;
+        }
+        state.setEnergy(currentEnergy);
         state.setMaxEnergy(player.energy != null ? player.energy.energyMaster : 3);
+
         state.setBlock(player.currentBlock);
         state.setStrength(getPowerAmount(player, "Strength"));
         state.setDexterity(getPowerAmount(player, "Dexterity"));

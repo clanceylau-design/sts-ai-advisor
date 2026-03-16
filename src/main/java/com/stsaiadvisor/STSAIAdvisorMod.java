@@ -15,6 +15,7 @@ import com.stsaiadvisor.config.ModConfig;
 import com.stsaiadvisor.event.EventManager;
 import com.stsaiadvisor.tool.*;
 import com.stsaiadvisor.overlay.OverlayClient;
+import com.stsaiadvisor.server.ModHttpServer;
 import com.stsaiadvisor.ui.RecommendationPanel;
 import com.stsaiadvisor.util.Constants;
 
@@ -104,25 +105,31 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
         // Initialize UI
         panel = new RecommendationPanel();
 
-        // 尝试启动 Overlay
-        if (!overlayClient.isAvailable()) {
-            startOverlayProcess();
-        }
-
-        boolean overlayAvailable = overlayClient.isAvailable();
-        System.out.println("[AI Advisor] Overlay available: " + overlayAvailable);
-
-        if (overlayAvailable) {
-            // 让 Overlay 显示并显示初始状态
-            overlayClient.show();
-            System.out.println("[AI Advisor] Overlay shown on startup");
-        } else {
-            System.err.println("[AI Advisor] WARNING: Overlay not running and failed to start!");
-            System.err.println("[AI Advisor] Please run: cd overlay && npm start");
-        }
-
         // Register event listeners
         eventManager = new EventManager(gameAgent);
+
+        // 启动Mod端HTTP服务器，监听来自Overlay的请求
+        ModHttpServer.getInstance().start();
+
+        // 在后台线程启动 Overlay，避免阻塞游戏主线程导致"未响应"
+        new Thread(() -> {
+            try {
+                if (!overlayClient.isAvailable()) {
+                    startOverlayProcess();
+                }
+
+                if (overlayClient.isAvailable()) {
+                    overlayClient.clear();
+                    overlayClient.show();
+                    System.out.println("[AI Advisor] Overlay cleared and shown on startup");
+                } else {
+                    System.err.println("[AI Advisor] WARNING: Overlay not running and failed to start!");
+                    System.err.println("[AI Advisor] Please run: cd overlay && npm start");
+                }
+            } catch (Exception e) {
+                System.err.println("[AI Advisor] Overlay startup error: " + e.getMessage());
+            }
+        }, "AI-Advisor-Overlay-Init").start();
 
         // Register mod badge
         registerModBadge();
@@ -145,6 +152,10 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
         toolRegistry.register(new GetCardRewardsTool());
         toolRegistry.register(new GetEventOptionsTool());
         toolRegistry.register(new GetTacticalKnowledgeTool());
+
+        // 用户偏好工具
+        toolRegistry.register(new GetUserPreferencesTool());
+        toolRegistry.register(new SaveUserPreferenceTool());
     }
 
     /**
@@ -244,16 +255,16 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
     /**
      * 启动 Overlay 进程
      *
-     * <p>尝试启动 Electron Overlay 应用。
-     * 查找顺序：
+     * <p>查找顺序：
      * <ol>
-     *   <li>项目目录下的 overlay/（从 local.properties 读取）</li>
-     *   <li>mod 目录下的 overlay/</li>
+     *   <li>Mod 目录下的 overlay.exe（打包后的可执行文件）</li>
+     *   <li>项目目录下的 overlay/dist/overlay.exe（开发构建）</li>
+     *   <li>项目目录下的 overlay/（开发模式，npm start）</li>
      * </ol>
      *
      * @return true 如果启动成功或已运行
      */
-    public static boolean startOverlayProcess() {
+    public static synchronized boolean startOverlayProcess() {
         System.out.println("[AI Advisor] Attempting to start Overlay...");
 
         // 如果已经在运行，直接返回成功
@@ -262,47 +273,73 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
             return true;
         }
 
-        // 从配置获取项目目录
+        // 从配置获取路径
         LocalConfig localConfig = LocalConfig.getInstance();
-        String configuredProjectDir = localConfig.getOverlayDir();
+        String gameDir = localConfig.getGameDir();
+        String projectDir = localConfig.getProjectDir();
 
-        // 可能的 Overlay 路径
-        java.util.List<String> possiblePaths = new java.util.ArrayList<>();
+        // 可能的 overlay.exe 路径（按优先级）
+        java.util.List<String> exePaths = new java.util.ArrayList<>();
 
-        // 优先使用配置的项目目录
-        if (configuredProjectDir != null && !configuredProjectDir.isEmpty()) {
-            possiblePaths.add(configuredProjectDir);
+        // 1. Mod 目录下的 overlay.exe（生产环境）
+        exePaths.add(gameDir + "\\mods\\sts-ai-advisor\\overlay.exe");
+
+        // 2. 项目目录下的 dist/overlay.exe（开发构建）
+        if (projectDir != null && !projectDir.isEmpty()) {
+            exePaths.add(projectDir + "\\overlay\\dist\\overlay.exe");
         }
 
-        // Mod 目录（相对路径）
-        possiblePaths.add("mods\\sts-ai-advisor\\overlay");
-
-        for (String overlayPath : possiblePaths) {
-            java.io.File dir = new java.io.File(overlayPath);
-            if (dir.exists() && new java.io.File(dir, "main.js").exists()) {
+        // 尝试启动 exe
+        boolean started = false;
+        for (String exePath : exePaths) {
+            java.io.File exeFile = new java.io.File(exePath);
+            if (exeFile.exists()) {
                 try {
-                    // 使用 npm start 启动
-                    ProcessBuilder pb = new ProcessBuilder("npm", "start");
-                    pb.directory(dir);
+                    System.out.println("[AI Advisor] Found overlay.exe at: " + exePath);
+                    ProcessBuilder pb = new ProcessBuilder(exePath);
                     pb.redirectErrorStream(true);
                     pb.start();
-
-                    System.out.println("[AI Advisor] Overlay started from: " + overlayPath);
-
-                    // 等待一下让 Overlay 启动
-                    Thread.sleep(2000);
-
-                    // 检查是否启动成功
-                    if (overlayClient != null && overlayClient.isAvailable()) {
-                        return true;
-                    }
+                    System.out.println("[AI Advisor] Overlay.exe started");
+                    started = true;
+                    break;
                 } catch (Exception e) {
-                    System.err.println("[AI Advisor] Failed to start Overlay from " + overlayPath + ": " + e.getMessage());
+                    System.err.println("[AI Advisor] Failed to start overlay.exe: " + e.getMessage());
                 }
             }
         }
 
-        System.err.println("[AI Advisor] Overlay not found in any known location");
+        // 未找到 exe，尝试开发模式（npm start）
+        if (!started && projectDir != null && !projectDir.isEmpty()) {
+            String overlayDir = projectDir + "\\overlay";
+            java.io.File dir = new java.io.File(overlayDir);
+            if (dir.exists() && new java.io.File(dir, "main.js").exists()) {
+                try {
+                    System.out.println("[AI Advisor] Trying dev mode: npm start in " + overlayDir);
+                    ProcessBuilder pb = new ProcessBuilder("cmd", "/c", "npm", "start");
+                    pb.directory(dir);
+                    pb.redirectErrorStream(true);
+                    pb.start();
+                    System.out.println("[AI Advisor] Overlay started (dev mode)");
+                    started = true;
+                } catch (Exception e) {
+                    System.err.println("[AI Advisor] Failed to start Overlay (dev mode): " + e.getMessage());
+                }
+            }
+        }
+
+        // 轮询等待 Overlay 就绪（最多 15 秒）
+        if (started && overlayClient != null) {
+            for (int i = 0; i < 15; i++) {
+                try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                if (overlayClient.isAvailable()) {
+                    System.out.println("[AI Advisor] Overlay is running (waited " + (i + 1) + "s)");
+                    return true;
+                }
+            }
+            System.err.println("[AI Advisor] Overlay process started but not responding after 15s");
+        }
+
+        System.err.println("[AI Advisor] Overlay not found. Please run: ./gradlew deployAll");
         return false;
     }
 

@@ -62,13 +62,11 @@ public class KeyInputListener implements InputProcessor {
     /**
      * Polling method - call this each frame.
      * Uses isKeyPressed with state tracking to emulate isKeyJustPressed.
+     *
+     * Note: InputProcessor keyDown is not used because the game may not
+     * properly route key events to our processor. Polling is more reliable.
      */
     public void pollInput() {
-        // Try to register if not already
-        if (!registered) {
-            tryRegister();
-        }
-
         // Use polling with state tracking
         // Note: We use scan codes (246, 247) which match what the game reports
         boolean f4IsPressed = Gdx.input.isKeyPressed(Constants.HOTKEY_TOGGLE_PANEL);
@@ -96,25 +94,8 @@ public class KeyInputListener implements InputProcessor {
 
     @Override
     public boolean keyDown(int keycode) {
-        // Handle via InputProcessor
-        System.out.println("[AI Advisor] keyDown: keycode=" + keycode + " (F3=" + Constants.HOTKEY_REQUEST_ADVICE + ", F4=" + Constants.HOTKEY_TOGGLE_PANEL + ")");
-
-        if (keycode == Constants.HOTKEY_TOGGLE_PANEL) {
-            System.out.println("[AI Advisor] F4 pressed - toggle panel");
-            if (onTogglePanel != null) {
-                onTogglePanel.run();
-            }
-            return true;
-        }
-
-        if (keycode == Constants.HOTKEY_REQUEST_ADVICE) {
-            System.out.println("[AI Advisor] F3 pressed - request advice");
-            if (onRequestAdvice != null) {
-                onRequestAdvice.run();
-            }
-            return true;
-        }
-
+        // 不使用 InputProcessor 方式，只通过 polling 处理热键
+        // 因为 polling 更可靠且避免重复触发
         return false;
     }
 

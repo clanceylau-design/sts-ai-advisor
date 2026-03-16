@@ -24,6 +24,18 @@ import java.util.concurrent.CompletableFuture;
 public interface GameTool {
 
     /**
+     * 工具信息类型
+     */
+    enum InfoType {
+        /** 实时信息：每回合都可能变化，需要每次调用（手牌、血量、敌人） */
+        REALTIME,
+        /** 稳定信息：战斗内很少变化，可缓存（牌组、遗物） */
+        STABLE,
+        /** 按需信息：根据场景决定是否需要（药水、事件选项） */
+        ON_DEMAND
+    }
+
+    /**
      * 获取工具ID
      *
      * <p>工具ID用于LLM调用时指定要使用的工具。
@@ -65,6 +77,22 @@ public interface GameTool {
      * @return 参数Schema
      */
     JsonObject getParametersSchema();
+
+    /**
+     * 获取信息类型
+     *
+     * <p>用于确定工具结果是否需要缓存：
+     * <ul>
+     *   <li>REALTIME: 每次都执行，不缓存</li>
+     *   <li>STABLE: 首次执行后缓存，战斗结束时失效</li>
+     *   <li>ON_DEMAND: 不缓存，LLM自主决定</li>
+     * </ul>
+     *
+     * @return 信息类型
+     */
+    default InfoType getInfoType() {
+        return InfoType.ON_DEMAND;
+    }
 
     /**
      * 执行工具

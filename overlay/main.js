@@ -13,6 +13,44 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const http = require('http');
 const path = require('path');
 
+// 安全日志函数，防止EPIPE错误
+function safeLog(...args) {
+    try {
+        // 使用 stdout 而非 console.log，更可控
+        process.stdout.write('[Overlay] ' + args.join(' ') + '\n');
+    } catch (e) {
+        // 静默忽略所有输出错误
+    }
+}
+
+function safeError(...args) {
+    try {
+        // 尝试写入 stderr，如果失败则静默忽略
+        process.stderr.write('[Overlay ERROR] ' + args.join(' ') + '\n');
+    } catch (e) {
+        // 静默忽略所有输出错误（包括 EPIPE）
+    }
+}
+
+// ============================================================
+// 全局错误处理
+// ============================================================
+
+/**
+ * 捕获未处理的异常，防止 Electron 弹窗
+ */
+process.on('uncaughtException', (error) => {
+    safeError('[Overlay] 未捕获异常:', error.message);
+    // 不退出进程，继续运行
+});
+
+/**
+ * 捕获未处理的 Promise rejection
+ */
+process.on('unhandledRejection', (reason, promise) => {
+    safeError('[Overlay] 未处理的 Promise rejection:', reason);
+});
+
 // ============================================================
 // 配置常量
 // ============================================================
@@ -39,6 +77,43 @@ let mainWindow = null;
 
 /** HTTP 服务器实例 */
 let httpServer = null;
+
+/** 存储的自定义提示词 */
+let customPrompt = null;
+
+/** Mod HTTP服务器端口 */
+const MOD_PORT = 17533;
+
+/** 消息历史 */
+const messages = [];
+let msgId = 0;
+const PAGE_SIZE = 20;
+
+/**
+ * 创建消息对象
+ */
+function createMessage(type, text) {
+    return { id: ++msgId, type, text, timestamp: Date.now() };
+}
+
+/**
+ * 将消息追加到历史并通知渲染进程
+ */
+function pushMessage(msg) {
+    messages.push(msg);
+    if (mainWindow) {
+        mainWindow.webContents.send('history-append', msg);
+    }
+}
+
+/**
+ * 更新末尾消息并通知渲染进程
+ */
+function updateLast(msg) {
+    if (mainWindow) {
+        mainWindow.webContents.send('history-update', msg);
+    }
+}
 
 // ============================================================
 // 窗口创建
@@ -75,7 +150,7 @@ function createWindow() {
         skipTaskbar: true,
         resizable: true,
         hasShadow: false,
-        focusable: false,  // 不可聚焦，防止抢占焦点
+        focusable: true,  // 可聚焦，支持输入
 
         // 安全配置
         webPreferences: {
@@ -86,7 +161,7 @@ function createWindow() {
         }
     });
 
-    // 设置更强的置顶级别（screen-saver 是最高级别）
+    // 设置最高置顶级别，确保在全屏游戏上方显示
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
 
     // 加载页面
@@ -134,12 +209,21 @@ function createHttpServer() {
         // POST 请求：接收数据
         if (req.method === 'POST') {
             let body = '';
+            const MAX_BODY = 1024 * 1024;  // 1MB 限制
+            let aborted = false;
 
             req.on('data', chunk => {
-                body += chunk.toString('utf8');  // 显式指定 UTF-8 编码
+                body += chunk.toString('utf8');
+                if (body.length > MAX_BODY) {
+                    aborted = true;
+                    res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({ error: 'Request body too large' }));
+                    req.destroy();
+                }
             });
 
             req.on('end', () => {
+                if (aborted) return;
                 try {
                     const data = body ? JSON.parse(body) : {};
                     handlePostRequest(url, data, res);
@@ -158,13 +242,30 @@ function createHttpServer() {
             return;
         }
 
+        // GET 请求：获取自定义提示词
+        if (req.method === 'GET' && url === '/custom-prompt') {
+            safeLog('[Overlay] GET /custom-prompt 收到请求');
+            safeLog('[Overlay] 当前 customPrompt:', customPrompt ? '已设置' : '未设置');
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            if (customPrompt) {
+                const promptToSend = customPrompt;
+                customPrompt = null;  // 发送后清空，避免重复使用
+                safeLog('[Overlay] 返回自定义提示词，已清空');
+                res.end(JSON.stringify({ success: true, prompt: promptToSend }));
+            } else {
+                safeLog('[Overlay] 无自定义提示词');
+                res.end(JSON.stringify({ success: false, prompt: null }));
+            }
+            return;
+        }
+
         // 其他请求返回 404
         res.writeHead(404);
         res.end();
     });
 
     httpServer.listen(CONFIG.PORT, () => {
-        console.log(`[Overlay] HTTP 服务器启动，端口: ${CONFIG.PORT}`);
+        safeLog(`[Overlay] HTTP 服务器启动，端口: ${CONFIG.PORT}`);
     });
 }
 
@@ -183,24 +284,43 @@ function handlePostRequest(url, data, res) {
     }
 
     switch (url) {
-        case '/update':
-            // 更新推荐内容
-            console.log('[Overlay] 收到更新请求，数据:', JSON.stringify(data, null, 2));
-            mainWindow.webContents.send('update', data);
+        case '/update': {
+            safeLog('[Overlay] 收到更新请求');
+            const text = data.text || '';
+            const last = messages[messages.length - 1];
+            if (last && last.type === 'loading') {
+                last.type = 'result';
+                last.text = text;
+                last.timestamp = Date.now();
+                updateLast(last);
+            } else {
+                pushMessage(createMessage('result', text));
+            }
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ success: true }));
             break;
+        }
 
-        case '/loading':
-            // 显示加载状态
-            mainWindow.webContents.send('loading', data);
+        case '/loading': {
+            const text = data.loadingText || '分析中...';
+            const last = messages[messages.length - 1];
+            if (last && last.type === 'loading') {
+                last.text = text;
+                last.timestamp = Date.now();
+                updateLast(last);
+            } else {
+                pushMessage(createMessage('loading', text));
+            }
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ success: true }));
             break;
+        }
 
         case '/clear':
-            // 清空面板内容（不隐藏窗口）
-            mainWindow.webContents.send('clear');
+            messages.length = 0;
+            if (mainWindow) {
+                mainWindow.webContents.send('history-clear');
+            }
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ success: true }));
             break;
@@ -242,13 +362,159 @@ ipcMain.on('window-drag', (event, { deltaX, deltaY }) => {
 });
 
 /**
- * 处理窗口最小化请求
+ * 处理窗口关闭请求（退出应用）
  */
-ipcMain.on('window-minimize', () => {
-    if (mainWindow) {
-        mainWindow.minimize();
+ipcMain.on('window-close', () => {
+    app.quit();
+});
+
+/**
+ * 渲染进程就绪，发送初始消息
+ */
+ipcMain.on('history-init', () => {
+    if (!mainWindow) return;
+    const start = Math.max(0, messages.length - PAGE_SIZE);
+    const slice = messages.slice(start);
+    mainWindow.webContents.send('history-init', {
+        messages: slice,
+        hasMore: start > 0
+    });
+});
+
+/**
+ * 加载更早的消息
+ */
+ipcMain.on('load-more', (event, { beforeId }) => {
+    if (!mainWindow) return;
+    const idx = messages.findIndex(m => m.id === beforeId);
+    if (idx <= 0) {
+        mainWindow.webContents.send('history-prepend', { messages: [], hasMore: false });
+        return;
+    }
+    const start = Math.max(0, idx - PAGE_SIZE);
+    const slice = messages.slice(start, idx);
+    mainWindow.webContents.send('history-prepend', {
+        messages: slice,
+        hasMore: start > 0
+    });
+});
+
+/**
+ * 处理自定义提示词请求
+ */
+ipcMain.on('custom-prompt', (event, { prompt }) => {
+    safeLog('[Overlay] 收到自定义提示词:', prompt);
+
+    if (!prompt || prompt.trim() === '') {
+        safeError('[Overlay] 提示词为空，忽略');
+        return;
+    }
+
+    customPrompt = prompt.trim();
+
+    // 追加 prompt 消息到历史
+    pushMessage(createMessage('prompt', customPrompt));
+
+    // 触发Mod端分析
+    try {
+        triggerAnalysis();
+    } catch (e) {
+        safeError('[Overlay] triggerAnalysis 异常:', e.message);
     }
 });
+
+/**
+ * 触发Mod端分析
+ */
+function triggerAnalysis() {
+    const http = require('http');
+
+    const options = {
+        hostname: 'localhost',
+        port: MOD_PORT,
+        path: '/trigger-analysis',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        // 添加超时设置，避免长时间等待
+        timeout: 3000
+    };
+
+    const req = http.request(options, (res) => {
+        safeLog('[Overlay] 触发分析响应状态:', res.statusCode);
+
+        // 消费响应数据，避免内存泄漏
+        res.on('data', () => {});
+        res.on('end', () => {});
+    });
+
+    req.on('error', (e) => {
+        // 静默处理错误，避免弹窗
+        // 常见错误：ECONNREFUSED（Mod未启动）、EPIPE（连接断开）
+        safeError('[Overlay] 触发分析失败:', e.message);
+    });
+
+    req.on('timeout', () => {
+        req.destroy();
+        safeError('[Overlay] 触发分析超时');
+    });
+
+    // 写入空请求体并结束请求
+    req.write('{}');
+    req.end();
+}
+
+// ============================================================
+// 父进程监控（防止僵尸进程）
+// ============================================================
+
+/**
+ * 监控 Mod HTTP 服务器是否存活
+ *
+ * Overlay 由游戏进程（Mod）启动，当游戏关闭后 Mod 的 HTTP 服务器不再响应。
+ * 定期轮询 Mod 端口，连续失败则自动退出，避免僵尸进程。
+ */
+function startParentWatchdog() {
+    let failures = 0;
+    const MAX_FAILURES = 3;
+    const INTERVAL = 5000;  // 每 5 秒检测一次
+
+    setInterval(() => {
+        const req = http.request({
+            hostname: 'localhost',
+            port: MOD_PORT,
+            path: '/status',
+            method: 'GET',
+            timeout: 2000
+        }, (res) => {
+            failures = 0;
+            res.on('data', () => {});
+            res.on('end', () => {});
+        });
+
+        req.on('error', () => {
+            failures++;
+            safeLog('父进程检测失败 (' + failures + '/' + MAX_FAILURES + ')');
+            if (failures >= MAX_FAILURES) {
+                safeLog('父进程已退出，Overlay 自动关闭');
+                app.quit();
+            }
+        });
+
+        req.on('timeout', () => {
+            req.destroy();
+            failures++;
+            safeLog('父进程检测超时 (' + failures + '/' + MAX_FAILURES + ')');
+            if (failures >= MAX_FAILURES) {
+                safeLog('父进程已退出，Overlay 自动关闭');
+                app.quit();
+            }
+        });
+
+        req.end();
+    }, INTERVAL);
+}
 
 // ============================================================
 // 应用生命周期
@@ -258,6 +524,7 @@ ipcMain.on('window-minimize', () => {
 app.whenReady().then(() => {
     createWindow();
     createHttpServer();
+    startParentWatchdog();
 
     // macOS 特殊处理：点击 Dock 图标时重新创建窗口
     app.on('activate', () => {

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win portable",
-    "build-dir": "electron-builder --win --dir"
+    "build-dir": "electron-builder --win --dir",
+    "deploy": "electron-builder --win portable && copy /Y dist\\overlay.exe D:\\SteamLibrary\\steamapps\\common\\SlayTheSpire\\mods\\sts-ai-advisor\\overlay.exe"
   },
   "author": "",
   "license": "MIT",
@@ -17,6 +18,9 @@
   "build": {
     "appId": "com.stsaiadvisor.overlay",
     "productName": "STS AI Advisor Overlay",
+    "portable": {
+      "artifactName": "overlay.${ext}"
+    },
     "win": {
       "target": "portable"
     },

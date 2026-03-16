@@ -19,13 +19,19 @@
         <div class="panel-header" id="panelHeader">
             <span class="title">AI Advisor</span>
             <div class="header-actions">
-                <button class="btn-minimize" id="btnMinimize" title="隐藏">−</button>
+                <button class="btn-close" id="btnClose" title="关闭">×</button>
             </div>
         </div>
 
         <!-- 内容区域 -->
         <div class="panel-content" id="panelContent">
             <div class="status-message">等待游戏数据...</div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="panel-input" id="panelInput">
+            <input type="text" id="customPromptInput" placeholder="输入自定义提示词..." />
+            <button id="btnSendPrompt">发送</button>
         </div>
     </div>
 

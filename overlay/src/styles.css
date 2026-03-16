@@ -61,9 +61,8 @@ body {
     justify-content: space-between;
     align-items: center;
 
-    /* 可拖拽 */
+    /* 可拖拽（通过 renderer.js 的 initDrag 实现，不用 -webkit-app-region 避免冲突） */
     cursor: move;
-    -webkit-app-region: drag;
 }
 
 .panel-header .title {
@@ -73,10 +72,9 @@ body {
 }
 
 .header-actions {
-    -webkit-app-region: no-drag;  /* 按钮区域可点击 */
 }
 
-.btn-minimize {
+.btn-close {
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.7);
@@ -88,8 +86,9 @@ body {
     line-height: 1;
 }
 
-.btn-minimize:hover {
-    background: rgba(255, 255, 255, 0.1);
+.btn-close:hover {
+    background: rgba(255, 80, 80, 0.4);
+    border-color: rgba(255, 80, 80, 0.6);
     color: white;
 }
 
@@ -140,70 +139,6 @@ body {
     padding: 20px;
 }
 
-/* 鼓励消息（金色标题） */
-.companion-message {
-    color: #ffd700;
-    font-size: 14px;
-    margin-bottom: 12px;
-    line-height: 1.5;
-}
-
-/* 策略说明 */
-.reasoning {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 13px;
-    line-height: 1.6;
-    margin-bottom: 12px;
-}
-
-/* 分隔线 */
-.divider {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.1);
-    margin: 10px 0;
-}
-
-/* 小节标题 */
-.section-title {
-    color: #ffd700;
-    font-size: 14px;
-    margin-bottom: 8px;
-}
-
-/* 建议列表 */
-.suggestion {
-    font-size: 13px;
-    line-height: 1.5;
-    margin-bottom: 6px;
-    padding: 4px 0;
-}
-
-/* 推荐卡牌（绿色） */
-.suggestion.recommended {
-    color: #7fff7f;
-}
-
-/* 备选卡牌（浅蓝） */
-.suggestion.alternate {
-    color: #a8d8ff;
-}
-
-/* 战斗建议（白色） */
-.suggestion.battle {
-    color: white;
-}
-
-/* 箭头符号 */
-.suggestion .arrow {
-    color: rgba(255, 255, 255, 0.5);
-    margin: 0 4px;
-}
-
-/* 理由文字 */
-.suggestion .reason {
-    color: rgba(255, 255, 255, 0.6);
-}
-
 /* ============================================================
    动画效果
    ============================================================ */
@@ -218,103 +153,151 @@ body {
     animation: fadeIn 0.2s ease-out;
 }
 
-/* 加载点动画 */
-@keyframes loadingDots {
-    0%, 20% { content: '.'; }
-    40% { content: '..'; }
-    60%, 100% { content: '...'; }
-}
-
 /* ============================================================
-   流式输出样式
+   原始文本内容样式
    ============================================================ */
 
-/* 工具调用区域 */
-.tool-calls {
-    margin-bottom: 12px;
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-}
-
-/* 工具状态 */
-.tool-status {
-    font-size: 12px;
-    padding: 2px 0;
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.tool-status.tool-running {
-    color: #ffd700;
-}
-
-.tool-status.tool-success {
-    color: #7fff7f;
-}
-
-.tool-status.tool-error {
-    color: #ff7f7f;
-}
-
-/* 流式内容区域 */
-.stream-content {
+.raw-content {
     color: rgba(255, 255, 255, 0.9);
     font-size: 13px;
     line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
-.stream-content p {
-    margin-bottom: 8px;
+/* ============================================================
+   输入区域样式
+   ============================================================ */
+
+.panel-input {
+    padding: 8px 12px;
+    background: rgba(30, 35, 45, 0.95);
+    border-top: 1px solid rgba(100, 120, 150, 0.4);
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
-.stream-content h2 {
-    color: #ffd700;
-    font-size: 15px;
-    margin: 12px 0 8px 0;
-}
-
-.stream-content h3 {
-    color: #8ecae6;
-    font-size: 14px;
-    margin: 10px 0 6px 0;
-}
-
-.stream-content h4 {
-    color: #a8d8ff;
-    font-size: 13px;
-    margin: 8px 0 4px 0;
-}
-
-.stream-content code {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 1px 4px;
-    border-radius: 3px;
-    font-size: 12px;
-    color: #7fff7f;
-}
-
-.stream-content pre {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 8px;
+.panel-input input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid rgba(100, 120, 150, 0.5);
     border-radius: 4px;
-    overflow-x: auto;
-    margin: 8px 0;
+    background: rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    outline: none;
 }
 
-.stream-content pre code {
-    background: none;
-    padding: 0;
+.panel-input input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
 }
 
-.stream-content strong {
-    color: #ffd700;
+.panel-input input:focus {
+    border-color: #8ecae6;
+    background: rgba(0, 0, 0, 0.4);
 }
 
-.stream-content em {
+.panel-input button {
+    padding: 6px 14px;
+    background: rgba(142, 202, 230, 0.3);
+    border: 1px solid rgba(142, 202, 230, 0.6);
+    border-radius: 4px;
     color: #8ecae6;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.stream-content li {
-    margin-left: 16px;
-    margin-bottom: 4px;
+.panel-input button:hover {
+    background: rgba(142, 202, 230, 0.5);
+    color: white;
+}
+
+.panel-input button:active {
+    background: rgba(142, 202, 230, 0.6);
+}
+
+/* ============================================================
+   消息样式
+   ============================================================ */
+
+.message {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-left: 3px solid transparent;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* 结果消息：蓝色左边框 */
+.message.result {
+    border-left-color: #8ecae6;
+}
+
+/* 加载消息：金色左边框 + 脉冲 */
+.message.loading {
+    border-left-color: #ffd700;
+    animation: msgPulse 1.5s ease-in-out infinite;
+}
+
+/* 用户提示词消息：右对齐，浅蓝背景 */
+.message.prompt {
+    border-left-color: transparent;
+    background: rgba(142, 202, 230, 0.15);
+    text-align: right;
+    border-right: 3px solid #8ecae6;
+}
+
+.message-text {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+.message-time {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.message.prompt .message-time {
+    text-align: right;
+}
+
+/* 加载指示器（小圆点） */
+.message-indicator {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #ffd700;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    animation: indicatorBlink 1s ease-in-out infinite;
+}
+
+/* 加载更多提示 */
+.load-more-hint {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 12px;
+    padding: 6px 0;
+}
+
+/* ============================================================
+   消息动画
+   ============================================================ */
+
+@keyframes msgPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes indicatorBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }

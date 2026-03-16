@@ -24,6 +24,11 @@ public class GetPlayerStateTool implements GameTool {
     }
 
     @Override
+    public InfoType getInfoType() {
+        return InfoType.REALTIME;
+    }
+
+    @Override
     public JsonObject getParametersSchema() {
         // 无参数
         JsonObject schema = new JsonObject();

@@ -24,19 +24,94 @@ import java.util.List;
  */
 public class RewardSceneCapture {
 
+    /** 上一次检测结果，用于避免日志刷屏 */
+    private boolean lastInCardReward = false;
+
     /**
      * 检测是否处于卡牌奖励选择界面
+     *
+     * <p>检测两种情况：
+     * <ul>
+     *   <li>CARD_REWARD screen - 特定卡牌奖励界面</li>
+     *   <li>combatRewardScreen - 战斗胜利后的奖励界面</li>
+     * </ul>
      *
      * @return true如果正在选择卡牌奖励
      */
     public boolean isInCardReward() {
         try {
-            // 检查当前房间是否为奖励完成状态且正在显示卡牌奖励
-            // CardRewardScreen没有isOpen字段，使用其他方式检测
-            return AbstractDungeon.getCurrRoom() != null
-                && AbstractDungeon.getCurrRoom().phase == AbstractRoom.RoomPhase.COMPLETE
-                && AbstractDungeon.screen == AbstractDungeon.CurrentScreen.CARD_REWARD;
+            boolean inCardReward = false;
+            String detectedSource = null;
+
+            // 情况1：标准的 CARD_REWARD screen
+            if (AbstractDungeon.screen == AbstractDungeon.CurrentScreen.CARD_REWARD) {
+                inCardReward = true;
+                detectedSource = "CARD_REWARD screen";
+            }
+
+            // 情况2：战斗胜利后的 combatRewardScreen
+            if (!inCardReward && AbstractDungeon.combatRewardScreen != null) {
+                // 检查奖励界面是否打开且包含卡牌奖励
+                boolean hasCardReward = false;
+
+                if (AbstractDungeon.combatRewardScreen.rewards != null) {
+                    for (RewardItem reward : AbstractDungeon.combatRewardScreen.rewards) {
+                        if (reward != null && reward.type == RewardItem.RewardType.CARD) {
+                            hasCardReward = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 如果有卡牌奖励，检查界面是否正在显示
+                // 通常在战斗胜利后，房间phase为COMPLETE，且screen不为NONE时说明在奖励界面
+                if (hasCardReward) {
+                    boolean isShowing = false;
+
+                    // 通过反射检查 rewardPanel 是否可见
+                    if (AbstractDungeon.overlayMenu != null) {
+                        try {
+                            // 获取 rewardPanel 字段（需要反射，因为是 protected）
+                            java.lang.reflect.Field rewardPanelField =
+                                AbstractDungeon.overlayMenu.getClass().getDeclaredField("rewardPanel");
+                            rewardPanelField.setAccessible(true);
+                            Object rewardPanel = rewardPanelField.get(AbstractDungeon.overlayMenu);
+
+                            if (rewardPanel != null) {
+                                // 获取 show 字段
+                                java.lang.reflect.Field showField =
+                                    rewardPanel.getClass().getDeclaredField("show");
+                                showField.setAccessible(true);
+                                isShowing = showField.getBoolean(rewardPanel);
+                            }
+                        } catch (Exception e) {
+                            // 反射失败时，使用备选判断：房间COMPLETE且有卡牌奖励
+                            isShowing = AbstractDungeon.getCurrRoom() != null
+                                && AbstractDungeon.getCurrRoom().phase == AbstractRoom.RoomPhase.COMPLETE;
+                        }
+                    }
+
+                    if (isShowing) {
+                        inCardReward = true;
+                        detectedSource = "combatRewardScreen";
+                    }
+                }
+            }
+
+            // 只在状态变化时打印日志
+            if (inCardReward != lastInCardReward) {
+                if (inCardReward) {
+                    System.out.println("[RewardCapture] Entered card reward scene (" + detectedSource + ")");
+                } else {
+                    System.out.println("[RewardCapture] Left card reward scene");
+                }
+                lastInCardReward = inCardReward;
+            }
+
+            return inCardReward;
         } catch (Exception e) {
+            System.err.println("[RewardCapture] isInCardReward error: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }

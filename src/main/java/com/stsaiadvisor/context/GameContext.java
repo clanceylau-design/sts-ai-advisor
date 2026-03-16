@@ -50,27 +50,42 @@ public class GameContext {
      *
      * <p>捕获当前游戏状态并缓存
      *
+     * <p>检测顺序：奖励场景优先于战斗场景检测
+     * <ul>
+     *   <li>原因：战斗胜利后，房间phase变为COMPLETE，但怪物列表可能仍存在</li>
+     *   <li>如果奖励界面正在显示，应该优先识别为奖励场景</li>
+     * </ul>
+     *
+     * <p>如果不在任何特定场景，设置为 general 通用场景，允许用户随时对话
+     *
      * @return 是否成功捕获
      */
     public boolean refreshContext() {
         cachedContext = null;
         currentScenario = null;
 
-        // 先检查战斗场景
+        // 优先检查奖励场景（战斗胜利后显示奖励界面）
+        if (rewardCapture.isInCardReward()) {
+            System.out.println("[GameContext] Detected reward scene");
+            cachedContext = rewardCapture.capture();
+            currentScenario = "reward";
+            if (cachedContext != null) {
+                return true;
+            }
+        }
+
+        // 再检查战斗场景
         if (battleCapture.isInBattle()) {
+            System.out.println("[GameContext] Detected battle scene");
             cachedContext = battleCapture.captureSceneContext();
             currentScenario = "battle";
             return cachedContext != null;
         }
 
-        // 再检查奖励场景
-        if (rewardCapture.isInCardReward()) {
-            cachedContext = rewardCapture.capture();
-            currentScenario = "reward";
-            return cachedContext != null;
-        }
-
-        return false;
+        // 不在任何特定场景，设置为 general 通用场景
+        System.out.println("[GameContext] No specific scene detected, using general mode");
+        currentScenario = "general";
+        return true;
     }
 
     /**
@@ -264,6 +279,13 @@ public class GameContext {
      */
     public boolean isInCardReward() {
         return "reward".equals(currentScenario);
+    }
+
+    /**
+     * 是否在通用场景（非战斗/奖励）
+     */
+    public boolean isGeneral() {
+        return "general".equals(currentScenario);
     }
 
     // ========== 原始捕获器访问 ==========

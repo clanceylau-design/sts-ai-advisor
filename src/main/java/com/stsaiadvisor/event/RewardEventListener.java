@@ -55,35 +55,36 @@ public class RewardEventListener implements PostUpdateSubscriber {
      */
     @Override
     public void receivePostUpdate() {
-        // 检测是否在卡牌奖励界面
-        boolean inReward = gameContext.getRewardCapture().isInCardReward();
+        try {
+            // 检测是否在卡牌奖励界面
+            boolean inReward = gameContext.getRewardCapture().isInCardReward();
 
-        // 检测进入奖励界面
-        if (inReward && !wasInReward) {
-            System.out.println("[RewardEventListener] Entered card reward screen");
-            hasRequestedCurrentReward = false;
-        }
-
-        // 检测离开奖励界面
-        if (!inReward && wasInReward) {
-            System.out.println("[RewardEventListener] Left card reward screen");
-            hasRequestedCurrentReward = false;
-            // 清理待处理请求
-            pendingRequest = null;
-
-            // 清空 Overlay 内容
-            if (STSAIAdvisorMod.isOverlayMode()) {
-                STSAIAdvisorMod.getOverlayClient().clear();
+            // 检测进入奖励界面
+            if (inReward && !wasInReward) {
+                System.out.println("[RewardEventListener] Entered card reward screen");
+                hasRequestedCurrentReward = false;
             }
-        }
 
-        // 在奖励界面且未请求过，自动请求分析
-        if (inReward && !hasRequestedCurrentReward) {
-            requestRewardAdvice();
-            hasRequestedCurrentReward = true;
-        }
+            // 检测离开奖励界面
+            if (!inReward && wasInReward) {
+                System.out.println("[RewardEventListener] Left card reward screen");
+                hasRequestedCurrentReward = false;
+                // 清理待处理请求
+                pendingRequest = null;
+            }
 
-        wasInReward = inReward;
+            // 在奖励界面且未请求过，自动请求分析
+            if (inReward && !hasRequestedCurrentReward) {
+                System.out.println("[RewardEventListener] Auto-triggering reward analysis");
+                requestRewardAdvice();
+                hasRequestedCurrentReward = true;
+            }
+
+            wasInReward = inReward;
+        } catch (Exception e) {
+            System.err.println("[RewardEventListener] receivePostUpdate error: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -126,8 +127,26 @@ public class RewardEventListener implements PostUpdateSubscriber {
 
         System.out.println("[RewardEventListener] Requesting advice for " + gameContext.getCardRewards().size() + " cards");
 
+        // 获取自定义提示词
+        String userPrompt = null;
+        if (STSAIAdvisorMod.isOverlayMode()) {
+            try {
+                userPrompt = STSAIAdvisorMod.getOverlayClient().getCustomPrompt();
+                System.out.println("[RewardEventListener] getCustomPrompt 返回: " + (userPrompt != null ? "'" + userPrompt + "'" : "null"));
+            } catch (Exception e) {
+                System.err.println("[RewardEventListener] 获取自定义提示词失败: " + e.getMessage());
+            }
+        }
+
+        // 使用默认提示词
+        if (userPrompt == null || userPrompt.isEmpty()) {
+            userPrompt = GameAgent.getDefaultUserPrompt("reward");
+            System.out.println("[RewardEventListener] 使用默认提示词: " + userPrompt);
+        } else {
+            System.out.println("[RewardEventListener] 使用自定义提示词: " + userPrompt);
+        }
+
         // 发起异步请求
-        String userPrompt = GameAgent.getDefaultUserPrompt("reward");
         pendingRequest = gameAgent.process(userPrompt, gameContext);
         pendingRequest.whenComplete((v, e) -> {
             if (e != null) {

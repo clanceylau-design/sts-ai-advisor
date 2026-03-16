@@ -5,6 +5,7 @@ import com.stsaiadvisor.model.Recommendation;
 import com.stsaiadvisor.model.CardPlaySuggestion;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -177,6 +178,62 @@ public class OverlayClient {
     public void clear() {
         if (!enabled) return;
         post("/clear", new Object());
+    }
+
+    /**
+     * 获取自定义提示词
+     *
+     * <p>从Overlay获取用户输入的自定义提示词，获取后会自动清空
+     *
+     * @return 自定义提示词，如果没有则返回null
+     */
+    public String getCustomPrompt() {
+        if (!enabled) return null;
+
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(HOST + "/custom-prompt");
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(2000);
+            conn.setReadTimeout(2000);
+
+            int responseCode = conn.getResponseCode();
+            System.out.println("[OverlayClient] GET /custom-prompt 响应码: " + responseCode);
+
+            if (responseCode == 200) {
+                try (InputStream is = conn.getInputStream()) {
+                    java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = is.read(buffer)) != -1) {
+                        baos.write(buffer, 0, bytesRead);
+                    }
+                    String response = baos.toString("UTF-8");
+                    System.out.println("[OverlayClient] 响应内容: " + response);
+                    com.google.gson.JsonObject json = gson.fromJson(response, com.google.gson.JsonObject.class);
+                    if (json.has("success") && json.get("success").getAsBoolean()) {
+                        if (json.has("prompt") && !json.get("prompt").isJsonNull()) {
+                            String prompt = json.get("prompt").getAsString();
+                            System.out.println("[OverlayClient] 获取到自定义提示词: " + prompt);
+                            return prompt;
+                        }
+                    } else {
+                        System.out.println("[OverlayClient] Overlay返回: success=false (无自定义提示词)");
+                    }
+                }
+            } else {
+                System.out.println("[OverlayClient] 响应码非200: " + responseCode);
+            }
+        } catch (Exception e) {
+            System.err.println("[OverlayClient] 获取自定义提示词失败: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+        return null;
     }
 
     /**
