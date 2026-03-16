@@ -2,6 +2,69 @@
 
 所有重要的项目变更都将记录在此文件中。
 
+## [0.7.0] - 2026-03-17
+
+### 流式输出重构
+
+重构 LLM 调用机制，所有轮次统一使用流式输出，显著提升响应体验。
+
+#### 核心改动
+
+**1. 统一流式调用**
+
+- 移除首轮/后续轮次的区分逻辑
+- 所有 LLM 调用统一使用 `callLLMStreaming` 方法
+- 删除非流式 `callLLM` 方法
+
+**2. tool_calls delta 累积修复**
+
+修复 qwen3 等模型在流式返回中发送空 `id`/`name` 覆盖正确值的问题：
+
+```javascript
+// 修复前：空值会覆盖已累积的正确值
+// 修复后：只有非空值才覆盖
+if (!newId.isEmpty()) {
+    tc.addProperty("id", newId);
+}
+```
+
+**3. 消息验证逻辑优化**
+
+重构 `validateAndFixMessages` 方法：
+
+- 两遍扫描：先处理 assistant 消息收集有效的 tool_call_ids，再过滤 tool 消息
+- 过滤无效的 tool_calls（空 id 或空 name）
+- 确保消息结构完整性
+
+**4. Overlay 流式渲染修复**
+
+修复 `appendStreamText` 中 HTML 实体重复编码问题：
+
+```javascript
+// 修复前：每次追加都对已编码内容再次编码，导致 amp;amp 循环
+// 修复后：只对新文本编码一次，直接追加
+textEl.innerHTML += escaped;
+```
+
+#### 技术细节
+
+| 问题 | 原因 | 修复 |
+|------|------|------|
+| 流式输出中断 | 首轮后才用流式 | 统一所有轮次用流式 |
+| tool_call name 为空 | qwen3 后续 delta 发送空值 | 只接受非空值覆盖 |
+| 消息结构错误 | assistant 的 tool_calls 无对应 tool | 双向验证过滤 |
+| `amp;amp` 循环 | HTML 实体重复编码 | 只对新文本编码 |
+
+#### 文件变更
+
+| 文件 | 改动 |
+|------|------|
+| `GameAgent.java` | 流式重构、消息验证优化、tool_calls 累积修复 |
+| `OverlayClient.java` | 流式输出方法 |
+| `overlay/main.js` | 流式 HTTP 端点 |
+| `overlay/preload.js` | 流式 IPC 回调 |
+| `overlay/src/renderer.js` | 流式渲染修复 |
+
 ## [0.6.1] - 2026-03-16
 
 ### 对话记忆机制 & 用户偏好系统

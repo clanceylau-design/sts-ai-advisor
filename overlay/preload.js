@@ -86,6 +86,23 @@ contextBridge.exposeInMainWorld('overlayApi', {
         safeOn('history-prepend', callback);
     },
 
+    // ---- 流式输出 ----
+
+    /** 流式文本追加 */
+    onStreamAppend: (callback) => {
+        safeOn('stream-append', callback);
+    },
+
+    /** 流式开始 */
+    onStreamStart: (callback) => {
+        safeOn('stream-start', callback);
+    },
+
+    /** 流式结束 */
+    onStreamEnd: (callback) => {
+        safeOn('stream-end', callback);
+    },
+
     // ---- 窗口操作 ----
 
     dragWindow: (deltaX, deltaY) => {
@@ -109,7 +126,8 @@ contextBridge.exposeInMainWorld('overlayApi', {
         try {
             const channels = [
                 'history-init', 'history-append', 'history-update',
-                'history-clear', 'history-prepend'
+                'history-clear', 'history-prepend',
+                'stream-append', 'stream-start', 'stream-end'
             ];
             channels.forEach(ch => ipcRenderer.removeAllListeners(ch));
         } catch (e) {

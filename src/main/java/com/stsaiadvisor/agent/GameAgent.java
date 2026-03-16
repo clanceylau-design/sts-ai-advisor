@@ -11,9 +11,13 @@ import com.stsaiadvisor.util.AsyncExecutor;
 import com.stsaiadvisor.util.LLMLogger;
 import okhttp3.*;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -26,13 +30,14 @@ import java.util.concurrent.TimeUnit;
  *   <li>Tool驱动：LLM自主决定调用哪些工具获取信息</li>
  *   <li>User Prompt区分场景：不同场景追加不同的用户请求</li>
  *   <li>对话记忆：保持上下文连续性，减少重复Tool调用</li>
+ *   <li>流式输出：所有轮次使用流式调用，实时输出到Overlay</li>
  * </ul>
  *
  * <p>工作流程（Agentic Loop）：
  * <ol>
  *   <li>构建System Prompt + Tool定义</li>
- *   <li>发送初始消息到LLM</li>
- *   <li>循环处理：LLM返回文本 → 输出；LLM请求Tool Call → 执行Tool，返回结果</li>
+ *   <li>发送初始消息到LLM（流式）</li>
+ *   <li>循环处理：LLM返回文本 → 流式输出；LLM请求Tool Call → 执行Tool，返回结果</li>
  *   <li>LLM结束 → 完成</li>
  * </ol>
  *
@@ -218,13 +223,13 @@ public class GameAgent {
             overlayClient.sendLoading("分析中...");
         }
 
-        // 5. Agentic Loop
+        // 4. Agentic Loop
         int round = 0;
 
         while (round < MAX_TOOL_ROUNDS) {
             round++;
 
-            // 构建请求体（非流式）
+            // 构建请求体
             JsonObject requestBody = new JsonObject();
             requestBody.addProperty("model", config.getModel());
             requestBody.add("messages", GSON.toJsonTree(messages).getAsJsonArray());
@@ -232,8 +237,9 @@ public class GameAgent {
             requestBody.addProperty("max_tokens", 1024);
             requestBody.addProperty("temperature", 0.7);
 
-            // 调用LLM
-            LLMResult result = callLLM(requestBody, messages);
+            // 统一使用流式调用
+            LLMResult result = callLLMStreaming(requestBody, messages);
+
             if (result == null) {
                 System.err.println("[GameAgent] LLM call failed");
                 break;
@@ -332,24 +338,9 @@ public class GameAgent {
                 continue;
             }
 
-            // 没有tool_calls，输出最终内容
+            // 没有tool_calls，流式已完成输出
             if (result.content != null && !result.content.isEmpty()) {
-                // 计算总耗时
-                long elapsedMs = System.currentTimeMillis() - startTime;
-
-                System.out.println("[GameAgent] Final content length: " + result.content.length());
-                System.out.println("[GameAgent] Final content preview: " + result.content.substring(0, Math.min(100, result.content.length())));
-
-                // 在内容顶部添加耗时信息
-                String contentWithTiming = "⏱ " + elapsedMs + "ms\n\n" + result.content;
-
-                if (overlayClient != null) {
-                    overlayClient.sendUpdate(contentWithTiming);
-                } else {
-                    System.err.println("[GameAgent] overlayClient is null!");
-                }
-            } else {
-                System.out.println("[GameAgent] No final content, result.content=" + (result.content == null ? "null" : "empty"));
+                System.out.println("[GameAgent] Streaming completed, content length: " + result.content.length());
             }
             break;
         }
@@ -470,53 +461,79 @@ public class GameAgent {
     /**
      * 验证并修复消息结构
      *
-     * <p>确保每个 tool 消息前面都有带 tool_calls 的 assistant 消息
-     * 如果发现孤立的 tool 消息，删除它们
+     * <p>确保消息结构完整性：
+     * <ul>
+     *   <li>每个 tool 消息前面都有带对应 tool_call_id 的 assistant 消息</li>
+     *   <li>assistant 消息中的 tool_calls 都有对应的 tool 消息响应</li>
+     * </ul>
      *
      * @param messages 原始消息列表
      * @return 修复后的消息列表
      */
     private List<JsonObject> validateAndFixMessages(List<JsonObject> messages) {
-        List<JsonObject> fixedMessages = new ArrayList<>();
+        // 第一遍：处理 assistant 消息，收集有效的 tool_call_ids
         java.util.Set<String> validToolCallIds = new java.util.HashSet<>();
+        List<JsonObject> tempMessages = new ArrayList<>();
 
-        for (int i = 0; i < messages.size(); i++) {
-            JsonObject msg = messages.get(i);
+        for (JsonObject msg : messages) {
             String role = msg.has("role") ? msg.get("role").getAsString() : "";
 
-            if ("system".equals(role) || "user".equals(role)) {
-                // system 和 user 消息总是有效
-                fixedMessages.add(msg);
-                validToolCallIds.clear();  // 新的 user 消息会重置 tool call 上下文
-            } else if ("assistant".equals(role)) {
-                // assistant 消息：检查是否有 tool_calls
+            if ("assistant".equals(role)) {
                 if (msg.has("tool_calls") && !msg.get("tool_calls").isJsonNull()) {
-                    // 记录所有 tool_call_id
                     JsonArray toolCalls = msg.getAsJsonArray("tool_calls");
+                    JsonArray validToolCalls = new JsonArray();
+
                     for (JsonElement tc : toolCalls) {
                         JsonObject tcObj = tc.getAsJsonObject();
-                        if (tcObj.has("id")) {
-                            validToolCallIds.add(tcObj.get("id").getAsString());
+                        String tcId = tcObj.has("id") ? tcObj.get("id").getAsString() : "";
+                        // 只保留有效的 tool_call（id 非空且以 call_ 或 tc_ 开头）
+                        if (tcId.startsWith("call_") || tcId.startsWith("tc_")) {
+                            validToolCalls.add(tcObj);
+                            validToolCallIds.add(tcId);
+                        } else {
+                            System.out.println("[GameAgent] 移除无效的 tool_call: " + tcId);
                         }
                     }
-                }
-                fixedMessages.add(msg);
-            } else if ("tool".equals(role)) {
-                // tool 消息：检查是否有对应的 tool_call_id
-                if (msg.has("tool_call_id")) {
-                    String toolCallId = msg.get("tool_call_id").getAsString();
-                    if (validToolCallIds.contains(toolCallId)) {
-                        fixedMessages.add(msg);
-                        // 移除已匹配的 tool_call_id，防止重复
-                        validToolCallIds.remove(toolCallId);
+
+                    if (validToolCalls.size() > 0) {
+                        JsonObject fixedMsg = copyJsonObject(msg);
+                        fixedMsg.add("tool_calls", validToolCalls);
+                        tempMessages.add(fixedMsg);
                     } else {
-                        System.out.println("[GameAgent] 跳过孤立的 tool 消息: " + toolCallId);
+                        // 没有 tool_calls 或都被移除了，检查是否有 content
+                        if (msg.has("content") && !msg.get("content").isJsonNull() && !msg.get("content").getAsString().isEmpty()) {
+                            JsonObject fixedMsg = copyJsonObject(msg);
+                            fixedMsg.remove("tool_calls");
+                            tempMessages.add(fixedMsg);
+                        } else {
+                            System.out.println("[GameAgent] 跳过无内容的 assistant 消息");
+                        }
+                    }
+                } else {
+                    tempMessages.add(msg);
+                }
+            } else {
+                tempMessages.add(msg);
+            }
+        }
+
+        // 第二遍：过滤 tool 消息，只保留有对应 validToolCallIds 的
+        List<JsonObject> fixedMessages = new ArrayList<>();
+        for (JsonObject msg : tempMessages) {
+            String role = msg.has("role") ? msg.get("role").getAsString() : "";
+
+            if ("tool".equals(role)) {
+                if (msg.has("tool_call_id")) {
+                    String tcId = msg.get("tool_call_id").getAsString();
+                    if (validToolCallIds.contains(tcId)) {
+                        fixedMessages.add(msg);
+                    } else {
+                        System.out.println("[GameAgent] 跳过孤立的 tool 消息: " + tcId);
                     }
                 } else {
                     System.out.println("[GameAgent] 跳过无 tool_call_id 的 tool 消息");
                 }
             } else {
-                // 未知角色，直接添加
                 fixedMessages.add(msg);
             }
         }
@@ -525,14 +542,39 @@ public class GameAgent {
     }
 
     /**
-     * 调用LLM API（非流式）
+     * 复制 JsonObject
+     */
+    private JsonObject copyJsonObject(JsonObject source) {
+        return GSON.fromJson(source, JsonObject.class);
+    }
+
+    /**
+     * LLM结果
+     */
+    private static class LLMResult {
+        boolean hasToolCalls = false;
+        List<JsonObject> toolCalls = null;
+        String content = null;
+    }
+
+    /**
+     * 流式调用LLM API
+     *
+     * <p>统一使用流式调用，实现实时输出效果：
+     * <ul>
+     *   <li>流式输出 content delta 到 Overlay</li>
+     *   <li>累积 tool_calls delta，返回结果继续 Agentic Loop</li>
+     * </ul>
      *
      * @param requestBody 请求体
      * @param messages 消息历史（会被更新）
-     * @return LLM结果
+     * @return LLM结果（包含 tool_calls 信息）
      */
-    private LLMResult callLLM(JsonObject requestBody, List<JsonObject> messages) throws IOException {
+    private LLMResult callLLMStreaming(JsonObject requestBody, List<JsonObject> messages) throws IOException {
         String apiUrl = config.getEffectiveBaseUrl("https://api.openai.com/v1/chat/completions");
+
+        // 设置 stream=true
+        requestBody.addProperty("stream", true);
         String requestBodyStr = GSON.toJson(requestBody);
 
         Request request = new Request.Builder()
@@ -544,77 +586,211 @@ public class GameAgent {
 
         long startTime = System.currentTimeMillis();
         LLMResult result = new LLMResult();
+        StringBuilder contentBuilder = new StringBuilder();
+        List<JsonObject> toolCallsList = new ArrayList<>();
+        Map<Integer, JsonObject> toolCallsMap = new java.util.HashMap<>(); // 按索引累积 tool_call
+
+        // 开始流式输出
+        if (overlayClient != null) {
+            overlayClient.sendStreamStart();
+        }
 
         try (Response response = httpClient.newCall(request).execute()) {
-            String responseBody = response.body() != null ? response.body().string() : "";
-
             if (!response.isSuccessful()) {
-                System.err.println("[GameAgent] API error: " + response.code() + " - " + responseBody);
+                String errorBody = response.body() != null ? response.body().string() : "";
+                System.err.println("[GameAgent] Streaming API error: " + response.code() + " - " + errorBody);
+                // 结束流式
+                if (overlayClient != null) {
+                    overlayClient.sendStreamEnd();
+                }
                 return null;
             }
 
-            long elapsed = System.currentTimeMillis() - startTime;
+            // 读取 SSE 流
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(response.body().byteStream(), StandardCharsets.UTF_8))) {
 
-            // 记录日志
-            LLMLogger.logRequest(
-                "GameAgent", apiUrl, config.getModel(),
-                "System prompt", "User prompt",
-                requestBodyStr, responseBody,
-                elapsed, true
-            );
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.startsWith("data: ")) {
+                        String data = line.substring(6).trim();
 
-            // 解析响应
-            JsonObject jsonResponse = GSON.fromJson(responseBody, JsonObject.class);
+                        if ("[DONE]".equals(data)) {
+                            System.out.println("[GameAgent] SSE: [DONE]");
+                            break;
+                        }
 
-            if (jsonResponse.has("choices")) {
-                JsonArray choices = jsonResponse.getAsJsonArray("choices");
-                if (choices.size() > 0) {
-                    JsonObject choice = choices.get(0).getAsJsonObject();
-                    JsonObject message = choice.getAsJsonObject("message");
+                        // 调试：打印原始 SSE 数据
+                        System.out.println("[GameAgent] SSE data: " + data);
 
-                    // 构建assistant消息并添加到历史
-                    JsonObject assistantMessage = new JsonObject();
-                    assistantMessage.addProperty("role", "assistant");
+                        try {
+                            JsonObject chunk = GSON.fromJson(data, JsonObject.class);
+                            JsonObject delta = extractDelta(chunk);
 
-                    // 处理content
-                    if (message.has("content") && !message.get("content").isJsonNull()) {
-                        result.content = message.get("content").getAsString();
-                        assistantMessage.addProperty("content", result.content);
-                    }
+                            if (delta != null) {
+                                // 处理 content delta
+                                if (delta.has("content") && !delta.get("content").isJsonNull()) {
+                                    String contentDelta = delta.get("content").getAsString();
+                                    contentBuilder.append(contentDelta);
+                                    System.out.println("[GameAgent] Content delta: " + contentDelta.replace("\n", "\\n"));
 
-                    // 处理tool_calls
-                    if (message.has("tool_calls") && !message.get("tool_calls").isJsonNull()) {
-                        result.hasToolCalls = true;
-                        JsonArray toolCallsArray = message.getAsJsonArray("tool_calls");
-                        assistantMessage.add("tool_calls", toolCallsArray);
+                                    // 流式输出到 overlay
+                                    if (overlayClient != null) {
+                                        overlayClient.sendStreamChunk(contentDelta);
+                                    }
+                                }
 
-                        result.toolCalls = new ArrayList<>();
-                        for (JsonElement tc : toolCallsArray) {
-                            result.toolCalls.add(tc.getAsJsonObject());
+                                // 处理 tool_calls delta
+                                if (delta.has("tool_calls") && !delta.get("tool_calls").isJsonNull()) {
+                                    JsonArray toolCallsDelta = delta.getAsJsonArray("tool_calls");
+                                    System.out.println("[GameAgent] Tool calls delta: " + toolCallsDelta.toString());
+
+                                    for (JsonElement tcElement : toolCallsDelta) {
+                                        JsonObject tcDelta = tcElement.getAsJsonObject();
+                                        int index = tcDelta.has("index") ? tcDelta.get("index").getAsInt() : 0;
+                                        System.out.println("[GameAgent] tcDelta[" + index + "]: " + tcDelta.toString());
+
+                                        // 获取或创建对应索引的 tool_call 对象
+                                        JsonObject tc = toolCallsMap.computeIfAbsent(index, k -> {
+                                            JsonObject newTc = new JsonObject();
+                                            newTc.addProperty("id", "");
+                                            newTc.addProperty("type", "function");
+                                            JsonObject func = new JsonObject();
+                                            func.addProperty("name", "");
+                                            func.addProperty("arguments", "");
+                                            newTc.add("function", func);
+                                            return newTc;
+                                        });
+
+                                        // 累积字段（只有非空时才覆盖）
+                                        if (tcDelta.has("id") && !tcDelta.get("id").isJsonNull()) {
+                                            String newId = tcDelta.get("id").getAsString();
+                                            if (!newId.isEmpty()) {
+                                                tc.addProperty("id", newId);
+                                                System.out.println("[GameAgent] Accumulated id: " + newId);
+                                            }
+                                        }
+                                        if (tcDelta.has("function")) {
+                                            JsonObject funcDelta = tcDelta.getAsJsonObject("function");
+                                            JsonObject func = tc.getAsJsonObject("function");
+
+                                            if (funcDelta.has("name") && !funcDelta.get("name").isJsonNull()) {
+                                                String newName = funcDelta.get("name").getAsString();
+                                                if (!newName.isEmpty()) {
+                                                    func.addProperty("name", newName);
+                                                    System.out.println("[GameAgent] Accumulated name: " + newName);
+                                                }
+                                            }
+                                            if (funcDelta.has("arguments") && !funcDelta.get("arguments").isJsonNull()) {
+                                                String args = func.has("arguments") ? func.get("arguments").getAsString() : "";
+                                                func.addProperty("arguments", args + funcDelta.get("arguments").getAsString());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (JsonSyntaxException e) {
+                            // 忽略解析错误，继续处理
                         }
                     }
-
-                    messages.add(assistantMessage);
-
-                    // 保存assistant消息到历史（重要：tool result需要配对的assistant消息）
-                    conversationHistory.add(assistantMessage);
                 }
             }
-        } catch (JsonSyntaxException e) {
-            System.err.println("[GameAgent] JSON parse error: " + e.getMessage());
-            return null;
         }
+
+        // 打印累积结果
+        System.out.println("[GameAgent] Accumulated toolCallsMap: " + toolCallsMap.toString());
+        System.out.println("[GameAgent] Accumulated content length: " + contentBuilder.length());
+
+        // 检查是否有有效的 tool_calls
+        List<JsonObject> validToolCalls = new ArrayList<>();
+        for (JsonObject tc : toolCallsMap.values()) {
+            String tcId = tc.has("id") ? tc.get("id").getAsString() : "";
+            JsonObject func = tc.has("function") ? tc.getAsJsonObject("function") : null;
+            String funcName = (func != null && func.has("name") && !func.get("name").isJsonNull())
+                ? func.get("name").getAsString() : "";
+
+            // 只保留有效的 tool_call（id 和 name 都非空）
+            if (!tcId.isEmpty() && !funcName.isEmpty()) {
+                validToolCalls.add(tc);
+            } else {
+                System.out.println("[GameAgent] 过滤无效的 tool_call: id=" + tcId + ", name=" + funcName);
+            }
+        }
+
+        if (!validToolCalls.isEmpty()) {
+            result.hasToolCalls = true;
+            result.toolCalls = validToolCalls;
+
+            // 有 tool_calls 时，必须添加 assistant 消息（包含 tool_calls）
+            JsonObject assistantMessage = new JsonObject();
+            assistantMessage.addProperty("role", "assistant");
+
+            // 构建 tool_calls 数组
+            JsonArray toolCallsArray = new JsonArray();
+            for (JsonObject tc : result.toolCalls) {
+                toolCallsArray.add(tc);
+            }
+            assistantMessage.add("tool_calls", toolCallsArray);
+
+            // 如果有 content 也添加
+            if (contentBuilder.length() > 0) {
+                assistantMessage.addProperty("content", contentBuilder.toString());
+            }
+
+            messages.add(assistantMessage);
+            conversationHistory.add(assistantMessage);
+            System.out.println("[GameAgent] Added assistant message with tool_calls to messages");
+        } else {
+            result.content = contentBuilder.toString();
+        }
+
+        // 结束流式输出
+        if (overlayClient != null) {
+            overlayClient.sendStreamEnd();
+        }
+
+        // 如果没有 tool_calls，添加 assistant 消息
+        if (!result.hasToolCalls && contentBuilder.length() > 0) {
+            JsonObject assistantMessage = new JsonObject();
+            assistantMessage.addProperty("role", "assistant");
+            assistantMessage.addProperty("content", result.content);
+            messages.add(assistantMessage);
+            conversationHistory.add(assistantMessage);
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        System.out.println("[GameAgent] Streaming completed in " + elapsed + "ms, hasToolCalls=" + result.hasToolCalls + ", contentLength=" + contentBuilder.length());
+        if (contentBuilder.length() > 0) {
+            System.out.println("[GameAgent] Content preview: " + contentBuilder.substring(0, Math.min(100, contentBuilder.length())));
+        }
+
+        // 记录 LLM 日志
+        String responseSummary = result.hasToolCalls
+            ? "Tool calls: " + result.toolCalls.size()
+            : "Content: " + (result.content != null ? result.content.substring(0, Math.min(200, result.content.length())) : "null");
+        LLMLogger.logRequest(
+            "GameAgent", apiUrl, config.getModel(),
+            "System prompt", "User prompt",
+            requestBodyStr, responseSummary,
+            elapsed, true
+        );
 
         return result;
     }
 
     /**
-     * LLM结果
+     * 从 SSE chunk 中提取 delta
      */
-    private static class LLMResult {
-        boolean hasToolCalls = false;
-        List<JsonObject> toolCalls = null;
-        String content = null;
+    private JsonObject extractDelta(JsonObject chunk) {
+        if (!chunk.has("choices")) return null;
+
+        JsonArray choices = chunk.getAsJsonArray("choices");
+        if (choices.size() == 0) return null;
+
+        JsonObject choice = choices.get(0).getAsJsonObject();
+        if (!choice.has("delta")) return null;
+
+        return choice.getAsJsonObject("delta");
     }
 
     /**

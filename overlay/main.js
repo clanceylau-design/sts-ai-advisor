@@ -339,6 +339,44 @@ function handlePostRequest(url, data, res) {
             res.end(JSON.stringify({ success: true }));
             break;
 
+        case '/stream-start':
+            // 流式开始：创建 loading 消息
+            safeLog('[Overlay] 流式开始');
+            pushMessage(createMessage('loading', ''));
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: true }));
+            break;
+
+        case '/stream-chunk':
+            // 流式追加文本
+            const chunkText = data.text || '';
+            if (chunkText && mainWindow) {
+                const last = messages[messages.length - 1];
+                if (last && last.type === 'loading') {
+                    last.text = (last.text || '') + chunkText;
+                    last.timestamp = Date.now();
+                    mainWindow.webContents.send('stream-append', { text: chunkText });
+                }
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: true }));
+            break;
+
+        case '/stream-end':
+            // 流式结束：转换为 result 消息
+            safeLog('[Overlay] 流式结束');
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg && lastMsg.type === 'loading') {
+                lastMsg.type = 'result';
+                lastMsg.timestamp = Date.now();
+                if (mainWindow) {
+                    mainWindow.webContents.send('stream-end', { text: lastMsg.text });
+                }
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ success: true }));
+            break;
+
         default:
             res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ error: 'Not found' }));

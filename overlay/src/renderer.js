@@ -130,6 +130,50 @@ function updateLastMessage(msg) {
 }
 
 /**
+ * 流式追加文本到当前 loading 消息
+ */
+function appendStreamText(text) {
+    const last = panelContent.querySelector('.message:last-child');
+    if (!last || !last.classList.contains('loading')) return;
+
+    const textEl = last.querySelector('.message-text');
+    if (textEl) {
+        // 只对新文本编码，直接追加到 innerHTML
+        const escaped = escapeHtml(text).replace(/\n/g, '<br>');
+        textEl.innerHTML += escaped;
+    }
+
+    if (isNearBottom()) scrollToBottom();
+}
+
+/**
+ * 流式结束，将 loading 转换为 result
+ */
+function finalizeStreamMessage(text) {
+    const last = panelContent.querySelector('.message:last-child');
+    if (!last) return;
+
+    // 获取消息 id
+    const msgId = parseInt(last.dataset.id, 10);
+    if (!msgId) return;
+
+    // 更新类名
+    last.classList.remove('loading');
+    last.classList.add('result');
+
+    // 重新构建内容（添加时间戳）
+    const textEl = last.querySelector('.message-text');
+    const currentHtml = textEl ? textEl.innerHTML : '';
+    const now = new Date();
+    const timeStr = String(now.getHours()).padStart(2, '0') + ':' +
+                    String(now.getMinutes()).padStart(2, '0') + ':' +
+                    String(now.getSeconds()).padStart(2, '0');
+
+    last.innerHTML = '<div class="message-text">' + currentHtml + '</div>' +
+                     '<div class="message-time">' + timeStr + '</div>';
+}
+
+/**
  * 在顶部批量插入旧消息
  */
 function prependMessages(msgs) {
@@ -301,6 +345,15 @@ function registerEventListeners() {
         hasMore = data.hasMore;
         prependMessages(data.messages);
         loading = false;
+    });
+
+    // 流式输出事件
+    window.overlayApi.onStreamAppend((data) => {
+        appendStreamText(data.text);
+    });
+
+    window.overlayApi.onStreamEnd((data) => {
+        finalizeStreamMessage(data.text);
     });
 }
 

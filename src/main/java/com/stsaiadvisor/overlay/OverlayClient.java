@@ -180,6 +180,44 @@ public class OverlayClient {
         post("/clear", new Object());
     }
 
+    // ============================================================
+    // 流式输出方法
+    // ============================================================
+
+    /**
+     * 开始流式输出
+     *
+     * <p>创建一个新的 loading 消息，准备接收流式文本
+     */
+    public void sendStreamStart() {
+        if (!enabled) return;
+        System.out.println("[OverlayClient] Stream start");
+        post("/stream-start", new Object());
+    }
+
+    /**
+     * 发送流式文本片段
+     *
+     * @param text 文本片段
+     */
+    public void sendStreamChunk(String text) {
+        if (!enabled || text == null || text.isEmpty()) return;
+        StreamChunkData data = new StreamChunkData();
+        data.text = text;
+        post("/stream-chunk", data);
+    }
+
+    /**
+     * 结束流式输出
+     *
+     * <p>将 loading 消息转换为 result 消息
+     */
+    public void sendStreamEnd() {
+        if (!enabled) return;
+        System.out.println("[OverlayClient] Stream end");
+        post("/stream-end", new Object());
+    }
+
     /**
      * 获取自定义提示词
      *
@@ -320,6 +358,11 @@ public class OverlayClient {
 
     /** 纯文本更新 */
     private static class TextUpdate {
+        String text;
+    }
+
+    /** 流式文本片段 */
+    private static class StreamChunkData {
         String text;
     }
 }
