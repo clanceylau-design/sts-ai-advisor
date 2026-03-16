@@ -22,7 +22,8 @@
       "artifactName": "overlay.${ext}"
     },
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "sign": null
     },
     "files": [
       "main.js",

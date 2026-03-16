@@ -12,11 +12,12 @@ import java.util.Properties;
  *   <li>提供游戏目录、项目目录等路径配置</li>
  * </ul>
  *
- * <p>配置文件位置：项目根目录的 local.properties
+ * <p>配置文件位置：mods/sts-ai-advisor/local.properties
  */
 public class LocalConfig {
 
-    private static final String CONFIG_FILE = "local.properties";
+    private static final String CONFIG_DIR = "mods/sts-ai-advisor/";
+    private static final String CONFIG_FILE = CONFIG_DIR + "local.properties";
 
     private static LocalConfig instance;
 
