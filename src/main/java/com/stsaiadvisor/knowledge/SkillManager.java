@@ -133,53 +133,168 @@ public class SkillManager {
     }
 
     /**
-     * 解析skill文件的元数据
+     * 解析skill文件的元数据（支持YAML frontmatter格式）
      */
     private SkillMeta parseMetadata(File file) throws IOException {
         SkillMeta meta = new SkillMeta();
-        meta.id = file.getName().replace(".md", "");
+        meta.id = extractSkillId(file);
         meta.filePath = file.getAbsolutePath();
         meta.coreCards = new ArrayList<>();
         meta.enemies = new ArrayList<>();
 
-        // 只读取前50行用于解析元数据
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+        // 读取文件内容
+        String content = readFile(file.getAbsolutePath());
 
-            String line;
-            int lineCount = 0;
-            boolean inMetadata = false;
-
-            while ((line = reader.readLine()) != null && lineCount < 50) {
-                lineCount++;
-                line = line.trim();
-
-                // 提取标题作为技能名称
-                if (line.startsWith("# ") && meta.name == null) {
-                    meta.name = line.substring(2).trim();
-                    continue;
-                }
-
-                // 进入元数据区域
-                if (line.equals("## 元数据")) {
-                    inMetadata = true;
-                    continue;
-                }
-
-                // 离开元数据区域
-                if (line.startsWith("## ") && !line.equals("## 元数据")) {
-                    inMetadata = false;
-                    continue;
-                }
-
-                // 解析元数据行
-                if (inMetadata && line.startsWith("- ")) {
-                    parseMetaLine(line, meta);
-                }
-            }
+        // 尝试解析YAML frontmatter
+        if (content.startsWith("---")) {
+            parseYAMLFrontmatter(content, meta);
+        } else {
+            // 兼容旧格式：## 元数据
+            parseLegacyMetadata(content, meta);
         }
 
         return meta.name != null ? meta : null;
+    }
+
+    /**
+     * 从文件路径提取skill ID
+     * 例如：skills/ironclad/strength-scaling/SKILL.md -> strength-scaling
+     */
+    private String extractSkillId(File file) {
+        String parentDir = file.getParentFile().getName();
+        String fileName = file.getName().replace(".md", "");
+
+        // 如果文件名是SKILL，使用父目录名作为ID
+        if ("SKILL".equals(fileName)) {
+            return parentDir;
+        }
+        return fileName;
+    }
+
+    /**
+     * 解析YAML frontmatter格式
+     * ---
+     * name: xxx
+     * character: xxx
+     * ---
+     */
+    private void parseYAMLFrontmatter(String content, SkillMeta meta) {
+        int endFrontmatter = content.indexOf("\n---", 4);
+        if (endFrontmatter == -1) return;
+
+        String frontmatter = content.substring(4, endFrontmatter);
+        String[] lines = frontmatter.split("\n");
+
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+
+            int colonIndex = line.indexOf(':');
+            if (colonIndex == -1) continue;
+
+            String key = line.substring(0, colonIndex).trim();
+            String value = line.substring(colonIndex + 1).trim();
+
+            switch (key) {
+                case "name":
+                    meta.name = value;
+                    break;
+                case "character":
+                    meta.character = toCNCharacter(value);
+                    break;
+                case "description":
+                    // 描述信息，暂不存储
+                    break;
+            }
+        }
+
+        // 从文件内容提取核心卡牌（在"核心卡牌"或"essential_cards"附近）
+        extractCoreCardsFromContent(content, meta);
+    }
+
+    /**
+     * 从内容中提取核心卡牌
+     */
+    private void extractCoreCardsFromContent(String content, SkillMeta meta) {
+        // 查找"核心卡牌"、"essential_cards"或类似标记
+        String[] patterns = {
+            "核心卡牌", "essential_cards", "核心牌", "核心输出"
+        };
+
+        for (String pattern : patterns) {
+            int idx = content.indexOf(pattern);
+            if (idx != -1) {
+                // 提取该行附近的内容
+                int start = Math.max(0, idx - 10);
+                int end = Math.min(content.length(), idx + 200);
+                String section = content.substring(start, end);
+
+                // 查找卡牌名称（中文卡牌名通常在方括号或冒号后）
+                extractCardNames(section, meta);
+                break;
+            }
+        }
+    }
+
+    /**
+     * 从文本中提取卡牌名称
+     */
+    private void extractCardNames(String text, SkillMeta meta) {
+        // 匹配常见的卡牌名称格式
+        // 例如：球状闪电、雷霆打击
+        String[] knownCards = {
+            "球状闪电", "雷霆打击", "静电释放", "双发", "多重释放",
+            "冰寒", "冰川", "碎片整理", "偏差认知", "遗传算法",
+            "黑暗之爪", "吸收",
+            "突破极限", "活动肌肉", "恶魔形态", "重刃", "双持",
+            "无惧疼痛", "壁垒", "巩固", "全身撞击", "铁斩波",
+            "腐化", "黑暗之拥", "耸肩无视", "战斗专注",
+            "飞身踢", "燃烧",
+            "无限刀刃", "精准", "终结技", "刀片之舞", "小刀",
+            "致命毒药", "催化剂", "爆发", "弹跳药瓶", "毒雾",
+            "灼热攻击", "武装", "狂怒"
+        };
+
+        for (String card : knownCards) {
+            if (text.contains(card) && !meta.coreCards.contains(card)) {
+                meta.coreCards.add(card);
+            }
+        }
+    }
+
+    /**
+     * 解析旧格式元数据（兼容）
+     */
+    private void parseLegacyMetadata(String content, SkillMeta meta) {
+        String[] lines = content.split("\n");
+        boolean inMetadata = false;
+
+        for (String line : lines) {
+            line = line.trim();
+
+            // 提取标题作为技能名称
+            if (line.startsWith("# ") && meta.name == null) {
+                meta.name = line.substring(2).trim();
+                continue;
+            }
+
+            // 进入元数据区域
+            if (line.equals("## 元数据")) {
+                inMetadata = true;
+                continue;
+            }
+
+            // 离开元数据区域
+            if (line.startsWith("## ") && !line.equals("## 元数据")) {
+                inMetadata = false;
+                continue;
+            }
+
+            // 解析元数据行
+            if (inMetadata && line.startsWith("- ")) {
+                parseMetaLine(line, meta);
+            }
+        }
     }
 
     /**

@@ -130,10 +130,9 @@ public class LLMLogger {
 
             switch (role) {
                 case "system":
-                    // System 消息显示前100字符
+                    // System 消息显示完整内容
                     String sysContent = msg.has("content") ? msg.get("content").getAsString() : "";
-                    String sysPreview = sysContent.length() > 100 ? sysContent.substring(0, 100) + "..." : sysContent;
-                    writer.write("    " + sysPreview.replace("\n", " ") + "\n");
+                    writer.write(sysContent + "\n");
                     break;
 
                 case "user":
@@ -146,7 +145,7 @@ public class LLMLogger {
                     // Assistant 消息：显示内容和 tool_calls
                     if (msg.has("content") && !msg.get("content").isJsonNull()) {
                         String asstContent = msg.get("content").getAsString();
-                        writer.write("    内容: " + truncate(asstContent, 200) + "\n");
+                        writer.write("    内容: " + asstContent + "\n");
                     }
                     if (msg.has("tool_calls") && !msg.get("tool_calls").isJsonNull()) {
                         JsonArray toolCalls = msg.getAsJsonArray("tool_calls");
@@ -163,11 +162,11 @@ public class LLMLogger {
                     break;
 
                 case "tool":
-                    // Tool 消息：显示工具名和结果摘要
+                    // Tool 消息：显示工具名和完整结果
                     String toolCallId = msg.has("tool_call_id") ? msg.get("tool_call_id").getAsString() : "?";
                     String toolContent = msg.has("content") ? msg.get("content").getAsString() : "";
                     writer.write("    tool_call_id: " + toolCallId + "\n");
-                    writer.write("    结果: " + truncate(toolContent, 100) + "\n");
+                    writer.write("    结果: " + toolContent + "\n");
                     break;
             }
             writer.write("\n");
@@ -187,7 +186,7 @@ public class LLMLogger {
                 // 显示内容
                 if (message.has("content") && !message.get("content").isJsonNull()) {
                     String content = message.get("content").getAsString();
-                    writer.write("回复内容: " + truncate(content, 300) + "\n");
+                    writer.write("回复内容: " + content + "\n");
                 }
 
                 // 显示 tool_calls
@@ -200,7 +199,7 @@ public class LLMLogger {
                             JsonObject func = tcObj.getAsJsonObject("function");
                             String toolName = func.has("name") ? func.get("name").getAsString() : "unknown";
                             String args = func.has("arguments") ? func.get("arguments").getAsString() : "{}";
-                            writer.write("  → " + toolName + "(" + truncate(args, 50) + ")\n");
+                            writer.write("  → " + toolName + "(" + args + ")\n");
                         }
                     }
                 }
@@ -247,14 +246,13 @@ public class LLMLogger {
                 compactMsg.addProperty("role", role);
 
                 if ("system".equals(role)) {
-                    compactMsg.addProperty("content", "[系统提示词，长度: " +
-                        (msg.has("content") ? msg.get("content").getAsString().length() : 0) + " 字符]");
+                    compactMsg.addProperty("content", msg.has("content") ? msg.get("content").getAsString() : "");
                 } else if ("user".equals(role)) {
                     String content = msg.has("content") ? msg.get("content").getAsString() : "";
-                    compactMsg.addProperty("content", truncate(content, 100));
+                    compactMsg.addProperty("content", content);
                 } else if ("assistant".equals(role)) {
                     if (msg.has("content") && !msg.get("content").isJsonNull()) {
-                        compactMsg.addProperty("content", truncate(msg.get("content").getAsString(), 100));
+                        compactMsg.addProperty("content", msg.get("content").getAsString());
                     }
                     if (msg.has("tool_calls")) {
                         compactMsg.add("tool_calls", msg.get("tool_calls"));
@@ -262,7 +260,7 @@ public class LLMLogger {
                 } else if ("tool".equals(role)) {
                     compactMsg.addProperty("tool_call_id", msg.has("tool_call_id") ? msg.get("tool_call_id").getAsString() : "?");
                     String content = msg.has("content") ? msg.get("content").getAsString() : "";
-                    compactMsg.addProperty("content", truncate(content, 100));
+                    compactMsg.addProperty("content", content);
                 }
 
                 compactMessages.add(compactMsg);

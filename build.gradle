@@ -79,3 +79,19 @@ task deploy(type: Copy, dependsOn: jar) {
         println "[DEPLOY] JAR deployed to: ${project.ext.gameDir}/mods/sts-ai-advisor.jar"
     }
 }
+
+// 部署skills-data目录
+task deploySkillsData(type: Copy) {
+    from 'skills-data'
+    into "${project.ext.gameDir}/mods/sts-ai-advisor/skills-data"
+    doLast {
+        println "[DEPLOY] Skills data deployed to: ${project.ext.gameDir}/mods/sts-ai-advisor/skills-data"
+    }
+}
+
+// 完整部署（JAR + skills-data）
+task deployAll(dependsOn: [deploy, deploySkillsData]) {
+    doLast {
+        println "[DEPLOY] Full deployment completed"
+    }
+}

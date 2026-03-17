@@ -59,6 +59,9 @@ public class SceneContext {
     /** 当前回合 */
     private int turn;
 
+    /** 药水列表 */
+    private List<PotionState> potions;
+
     public SceneContext() {
         this.sceneData = new HashMap<>();
     }
@@ -126,6 +129,12 @@ public class SceneContext {
 
     public int getTurn() { return turn; }
     public void setTurn(int turn) { this.turn = turn; }
+
+    public List<PotionState> getPotions() {
+        if (potions == null) potions = new ArrayList<>();
+        return potions;
+    }
+    public void setPotions(List<PotionState> potions) { this.potions = potions; }
 
     /**
      * 判断是否为战斗场景

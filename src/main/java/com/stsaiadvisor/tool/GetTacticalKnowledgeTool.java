@@ -21,7 +21,8 @@ public class GetTacticalKnowledgeTool implements GameTool {
     private final SkillManager skillManager;
 
     public GetTacticalKnowledgeTool() {
-        this.skillManager = new SkillManager("mods/sts-ai-advisor/skills");
+        // 使用skills-data目录下的skills
+        this.skillManager = new SkillManager("mods/sts-ai-advisor/skills-data/skills");
         this.skillManager.loadMetadata();
     }
 

@@ -36,3 +36,6 @@ overlay/node_modules/
 
 # Ignore Electron build output
 overlay/dist/
+
+# Ignore raw skills data (screenshots, docs)
+skills-data/raw/

@@ -53,6 +53,9 @@ public class BattleStateCapture {
             // 遗物
             context.setRelics(captureRelics());
 
+            // 药水
+            context.setPotions(capturePotions());
+
             // 回合和层数
             if (AbstractDungeon.actionManager != null) {
                 context.setTurn(AbstractDungeon.actionManager.turn);
@@ -548,6 +551,33 @@ public class BattleStateCapture {
             }
         }
         return relics;
+    }
+
+    /**
+     * 捕获药水信息
+     *
+     * <p>从玩家的药水槽中获取所有药水
+     * <p>游戏中药水存储在 AbstractPlayer.potions 列表中
+     */
+    private List<PotionState> capturePotions() {
+        List<PotionState> potions = new ArrayList<>();
+        if (AbstractDungeon.player == null || AbstractDungeon.player.potions == null) {
+            return potions;
+        }
+
+        int slot = 0;
+        for (com.megacrit.cardcrawl.potions.AbstractPotion potion : AbstractDungeon.player.potions) {
+            if (potion != null && potion.name != null && !potion.name.isEmpty()) {
+                PotionState state = new PotionState();
+                state.setId(potion.ID);
+                state.setName(potion.name);
+                state.setDescription(potion.description);
+                state.setSlot(slot);
+                potions.add(state);
+            }
+            slot++;
+        }
+        return potions;
     }
 
     /**

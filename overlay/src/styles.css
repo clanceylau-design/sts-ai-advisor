@@ -21,7 +21,7 @@
 body {
     background: transparent;
     font-family: 'Microsoft YaHei', 'PingFang SC', 'SimHei', 'Segoe UI', sans-serif;
-    -webkit-user-select: none;  /* 禁止文字选中 */
+    -webkit-user-select: none;  /* 默认禁止选中（标题栏等） */
     overflow: hidden;
 }
 
@@ -256,6 +256,8 @@ body {
     font-size: 13px;
     line-height: 1.6;
     word-wrap: break-word;
+    -webkit-user-select: text;
+    cursor: text;
 }
 
 .message-time {
@@ -278,6 +280,21 @@ body {
     margin-right: 6px;
     vertical-align: middle;
     animation: indicatorBlink 1s ease-in-out infinite;
+}
+
+/* 中间状态消息（降级后的 loading）：紧凑显示 */
+.message.status {
+    padding: 3px 10px;
+    margin-bottom: 2px;
+    background: transparent;
+    border-left-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+}
+
+.message.status .message-text {
+    color: #39ff14;
+    font-size: 11px;
+    line-height: 1.4;
 }
 
 /* 加载更多提示 */

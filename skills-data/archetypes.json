@@ -1,0 +1,288 @@
+[
+  {
+    "id": "strength-scaling",
+    "name": "力量叠加流",
+    "character": "ironclad",
+    "core_mechanism": "通过力量buff使每张攻击牌的伤害倍增，力量对多段攻击收益是乘法的",
+    "essential_cards": ["突破极限", "活动肌肉", "恶魔形态"],
+    "synergy_cards": ["重刃", "双持", "连击", "剑柄打击"],
+    "anti_synergy_cards": ["全能", "岿然不动"],
+    "formation_signals": [
+      "拥有突破极限或恶魔形态",
+      "有重刃/连击等力量乘数牌",
+      "有活动肌肉作为力量来源"
+    ],
+    "relic_priority": ["工具箱", "陀螺", "日晷", "红骷髅"],
+    "key_potions": ["力量药水", "液态记忆"],
+    "strengths": ["后期爆发极高", "遗物协同强", "成型后输出稳定"],
+    "weaknesses": ["前期脆弱", "启动慢", "怕多层小怪", "需要多回合启动"],
+    "boss_matchup": {
+      "favorable": ["六火鬼", "天罚"],
+      "unfavorable": ["时间吞噬者", "心脏"]
+    },
+    "risk_level": "high",
+    "difficulty": "intermediate",
+    "scaling_type": "late_game",
+    "skill_path": "skills/ironclad/strength-scaling/SKILL.md"
+  },
+  {
+    "id": "block-deck",
+    "name": "防战流",
+    "character": "ironclad",
+    "core_mechanism": "高格挡+岿然不动/壁垒实现无敌防御，以守为攻，通过全身撞击输出",
+    "essential_cards": ["无惧疼痛", "壁垒", "巩固"],
+    "synergy_cards": ["全身撞击", "幽灵铠甲", "铁斩波", "耸肩无视"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有无惧疼痛或壁垒",
+      "多张高格挡牌（格挡≥8）",
+      "有巩固作为格挡乘数"
+    ],
+    "relic_priority": ["锚链", "蛇蛋", "陀螺"],
+    "key_potions": ["格挡药水", "灵巧药水"],
+    "strengths": ["稳定性高", "不怕Boss", "新手友好", "启动快"],
+    "weaknesses": ["输出依赖全身撞击", "怕破甲敌人", "战斗时间长"],
+    "boss_matchup": {
+      "favorable": ["心脏", "时间吞噬者"],
+      "unfavorable": ["六火鬼（多层伤害）"]
+    },
+    "risk_level": "low",
+    "difficulty": "beginner",
+    "scaling_type": "mid_game",
+    "skill_path": "skills/ironclad/block-deck/SKILL.md"
+  },
+  {
+    "id": "corruption-deck",
+    "name": "腐化流",
+    "character": "ironclad",
+    "core_mechanism": "腐化使所有技能牌变为0费，配合黑暗之拥实现伪无限循环",
+    "essential_cards": ["腐化", "黑暗之拥"],
+    "synergy_cards": ["全身撞击", "巩固", "壁垒"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有腐化",
+      "有黑暗之拥作为抽牌引擎",
+      "有全身撞击/巩固作为输出"
+    ],
+    "relic_priority": ["日晷", "陀螺"],
+    "key_potions": ["能量药水"],
+    "strengths": ["爆发强", "过牌能力强", "能量效率高"],
+    "weaknesses": ["发牌员依赖", "启动需要腐化沉底", "爆发后伤害可能不够"],
+    "boss_matchup": {
+      "favorable": ["大部分Boss"],
+      "unfavorable": []
+    },
+    "risk_level": "medium",
+    "difficulty": "advanced",
+    "scaling_type": "mid_game",
+    "skill_path": "skills/ironclad/corruption-deck/SKILL.md"
+  },
+  {
+    "id": "infinite-deck",
+    "name": "无限流",
+    "character": "ironclad",
+    "core_mechanism": "精简卡组+日晷实现每回合无限循环，一回合击杀敌人",
+    "essential_cards": ["双持", "飞身踢"],
+    "synergy_cards": ["燃烧", "黑暗之拥"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有日晷遗物",
+      "有双持+飞身踢组合",
+      "卡组精简（≤10张）"
+    ],
+    "relic_priority": ["日晷"],
+    "key_potions": [],
+    "strengths": ["一回合击杀", "无视敌人血量", "高玩进阶玩法"],
+    "weaknesses": ["对卡组精简度要求极高", "需要运气拿核心牌", "怕时间吞噬者"],
+    "boss_matchup": {
+      "favorable": ["大部分Boss"],
+      "unfavorable": ["时间吞噬者", "觉醒者"]
+    },
+    "risk_level": "high",
+    "difficulty": "advanced",
+    "scaling_type": "late_game",
+    "skill_path": "skills/ironclad/infinite-deck/SKILL.md"
+  },
+  {
+    "id": "searing-deck",
+    "name": "灼热流",
+    "character": "ironclad",
+    "core_mechanism": "灼热攻击可无限升级，配合武装快速升级攻击牌",
+    "essential_cards": ["灼热攻击", "武装"],
+    "synergy_cards": ["狂怒"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有灼热攻击",
+      "有篝火次数升级",
+      "有武装配合升级"
+    ],
+    "relic_priority": [],
+    "key_potions": [],
+    "strengths": ["可无限成长", "后期伤害极高"],
+    "weaknesses": ["吃篝火次数", "启动慢", "费力不讨好", "遗物依赖"],
+    "boss_matchup": {
+      "favorable": [],
+      "unfavorable": []
+    },
+    "risk_level": "high",
+    "difficulty": "intermediate",
+    "scaling_type": "late_game",
+    "skill_path": "skills/ironclad/searing-deck/SKILL.md"
+  },
+  {
+    "id": "knife-deck",
+    "name": "刀贼流",
+    "character": "silent",
+    "core_mechanism": "无限刀刃持续获得小刀，精准提升伤害，终结技爆发输出",
+    "essential_cards": ["无限刀刃", "精准", "终结技"],
+    "synergy_cards": ["刀片之舞", "双持"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有无限刀刃",
+      "有精准提升小刀伤害",
+      "有终结技作为爆发"
+    ],
+    "relic_priority": ["陀螺", "手里剑"],
+    "key_potions": [],
+    "strengths": ["持续输出稳定", "过牌能力强"],
+    "weaknesses": ["依赖精准", "没有精准时伤害较低"],
+    "boss_matchup": {
+      "favorable": ["史莱姆老大"],
+      "unfavorable": []
+    },
+    "risk_level": "medium",
+    "difficulty": "beginner",
+    "scaling_type": "mid_game",
+    "skill_path": "skills/silent/knife-deck/SKILL.md"
+  },
+  {
+    "id": "poison-deck",
+    "name": "毒贼流",
+    "character": "silent",
+    "core_mechanism": "快速叠毒，催化剂翻倍毒层，爆发配合催化剂实现指数增长",
+    "essential_cards": ["致命毒药", "催化剂", "爆发"],
+    "synergy_cards": ["弹跳药瓶", "毒雾"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有致命毒药/弹跳药瓶",
+      "有催化剂作为翻倍",
+      "有爆发配合催化剂"
+    ],
+    "relic_priority": [],
+    "key_potions": ["毒药水"],
+    "strengths": ["无视敌人防御", "持续伤害", "催化剂爆发"],
+    "weaknesses": ["需要一定回合数启动", "不适合快速击杀"],
+    "boss_matchup": {
+      "favorable": ["铜人", "觉醒者"],
+      "unfavorable": []
+    },
+    "risk_level": "medium",
+    "difficulty": "intermediate",
+    "scaling_type": "mid_game",
+    "skill_path": "skills/silent/poison-deck/SKILL.md"
+  },
+  {
+    "id": "lightning-orb",
+    "name": "电球流",
+    "character": "defect",
+    "core_mechanism": "生成大量闪电充能球造成群体伤害，双发让充能球效果翻倍",
+    "essential_cards": ["球状闪电", "静电释放", "雷霆打击"],
+    "synergy_cards": ["双发", "多重释放"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有球状闪电/静电释放",
+      "有雷霆打击作为核心输出",
+      "有双发提升效果"
+    ],
+    "relic_priority": ["核反应堆", "电容器"],
+    "key_potions": [],
+    "strengths": ["群体伤害", "无视防御", "快速清理小怪"],
+    "weaknesses": ["单体伤害可能不够", "需要充能球槽位"],
+    "boss_matchup": {
+      "favorable": ["史莱姆老大", "铜人", "时间吞噬者"],
+      "unfavorable": []
+    },
+    "risk_level": "medium",
+    "difficulty": "intermediate",
+    "scaling_type": "mid_game",
+    "skill_path": "skills/defect/lightning-orb/SKILL.md"
+  },
+  {
+    "id": "frost-orb",
+    "name": "冰球流",
+    "character": "defect",
+    "core_mechanism": "冰霜充能球提供稳定格挡，配合高集中获得大量格挡",
+    "essential_cards": ["冰寒", "冰川", "碎片整理"],
+    "synergy_cards": ["双发"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有冰寒/冰川",
+      "有碎片整理提升集中",
+      "有双发让格挡翻倍"
+    ],
+    "relic_priority": ["数据磁盘", "电容器"],
+    "key_potions": ["格挡药水"],
+    "strengths": ["稳定防御", "高格挡", "不怕高攻击敌人"],
+    "weaknesses": ["输出依赖其他手段", "前期较弱"],
+    "boss_matchup": {
+      "favorable": ["六火亡魂", "第一勇士", "甜甜圈"],
+      "unfavorable": []
+    },
+    "risk_level": "low",
+    "difficulty": "intermediate",
+    "scaling_type": "mid_game",
+    "skill_path": "skills/defect/frost-orb/SKILL.md"
+  },
+  {
+    "id": "dark-orb",
+    "name": "暗球流",
+    "character": "defect",
+    "core_mechanism": "黑暗充能球积累高额伤害，触发时造成爆发伤害",
+    "essential_cards": ["黑暗之爪", "吸收", "多重释放"],
+    "synergy_cards": ["双发"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有黑暗之爪/吸收",
+      "有多重释放/双发触发暗球",
+      "有集中提升积累速度"
+    ],
+    "relic_priority": ["电容器"],
+    "key_potions": [],
+    "strengths": ["爆发伤害极高", "无视防御"],
+    "weaknesses": ["需要积累时间", "触发时机需把握"],
+    "boss_matchup": {
+      "favorable": ["守护者", "觉醒者"],
+      "unfavorable": []
+    },
+    "risk_level": "medium",
+    "difficulty": "advanced",
+    "scaling_type": "late_game",
+    "skill_path": "skills/defect/dark-orb/SKILL.md"
+  },
+  {
+    "id": "focus-deck",
+    "name": "集中流",
+    "character": "defect",
+    "core_mechanism": "通过多种方式获得高集中，所有充能球效果大幅提升",
+    "essential_cards": ["偏差认知", "碎片整理", "遗传算法"],
+    "synergy_cards": ["任意充能球生成卡牌"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有偏差认知/碎片整理",
+      "有遗传算法持续提升集中",
+      "有充能球生成手段"
+    ],
+    "relic_priority": ["数据磁盘"],
+    "key_potions": [],
+    "strengths": ["所有充能球效果提升", "灵活适配"],
+    "weaknesses": ["偏差认知会逐渐失去集中", "需要充能球配合"],
+    "boss_matchup": {
+      "favorable": [],
+      "unfavorable": []
+    },
+    "risk_level": "medium",
+    "difficulty": "advanced",
+    "scaling_type": "late_game",
+    "skill_path": "skills/defect/focus-deck/SKILL.md"
+  }
+]

@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Slay the Spire Archetype Card",
+  "description": "流派识别层卡片格式定义",
+  "type": "object",
+  "required": ["id", "name", "character", "core_mechanism", "essential_cards", "synergy_cards", "formation_signals", "strengths", "weaknesses", "risk_level", "skill_path"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "流派唯一标识符，用于索引",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "流派中文名称"
+    },
+    "character": {
+      "type": "string",
+      "enum": ["ironclad", "silent", "defect", "watcher"],
+      "description": "所属角色"
+    },
+    "core_mechanism": {
+      "type": "string",
+      "description": "一句话描述流派核心机制"
+    },
+    "essential_cards": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "必要牌，缺了不成流派",
+      "minItems": 1
+    },
+    "synergy_cards": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "协同牌，有了更强"
+    },
+    "anti_synergy_cards": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "反协同牌，有了变弱"
+    },
+    "formation_signals": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "判断卡组是否属于该流派的信号",
+      "minItems": 1
+    },
+    "relic_priority": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "遗物优先级（从高到低）"
+    },
+    "key_potions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "关键药水"
+    },
+    "strengths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "流派优势",
+      "minItems": 1
+    },
+    "weaknesses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "流派劣势",
+      "minItems": 1
+    },
+    "boss_matchup": {
+      "type": "object",
+      "properties": {
+        "favorable": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "克制的Boss"
+        },
+        "unfavorable": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "被克制的Boss"
+        }
+      }
+    },
+    "elite_matchup": {
+      "type": "object",
+      "properties": {
+        "favorable": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "克制的精英"
+        },
+        "unfavorable": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "被克制的精英"
+        }
+      }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "风险等级"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["beginner", "intermediate", "advanced"],
+      "description": "操作难度"
+    },
+    "scaling_type": {
+      "type": "string",
+      "enum": ["early_game", "mid_game", "late_game"],
+      "description": "发力时期"
+    },
+    "skill_path": {
+      "type": "string",
+      "description": "第二级详细策略文件路径"
+    },
+    "source": {
+      "type": "string",
+      "description": "来源文档引用"
+    },
+    "notes": {
+      "type": "string",
+      "description": "额外备注"
+    }
+  }
+}

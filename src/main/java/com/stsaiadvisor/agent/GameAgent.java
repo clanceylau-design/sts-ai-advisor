@@ -9,6 +9,7 @@ import com.stsaiadvisor.tool.ToolRegistry;
 import com.stsaiadvisor.tool.ToolResult;
 import com.stsaiadvisor.util.AsyncExecutor;
 import com.stsaiadvisor.util.LLMLogger;
+import com.stsaiadvisor.knowledge.ArchetypeLoader;
 import okhttp3.*;
 
 import java.io.BufferedReader;
@@ -70,6 +71,9 @@ public class GameAgent {
     private final ToolRegistry toolRegistry;
     private final OverlayClient overlayClient;
 
+    /** Archetype加载器（用于注入archetype cards） */
+    private final ArchetypeLoader archetypeLoader;
+
     /** 对话历史（用于保持上下文连续性） */
     private List<JsonObject> conversationHistory = new ArrayList<>();
 
@@ -92,6 +96,10 @@ public class GameAgent {
             .readTimeout(config.getRequestTimeout(), TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build();
+
+        // 初始化Archetype加载器
+        this.archetypeLoader = new ArchetypeLoader("mods/sts-ai-advisor/skills-data/archetypes.json");
+        this.archetypeLoader.load();
     }
 
     /**
@@ -846,6 +854,15 @@ public class GameAgent {
 
         prompt.append("你是杀戮尖塔的AI助手，帮助玩家做出更好的决策。\n\n");
 
+        prompt.append("## 游戏基本规则\n");
+        prompt.append("杀戮尖塔是Roguelike卡牌构筑游戏，目标是爬塔通关。\n\n");
+        prompt.append("【回合流程】每回合：抽5张牌（遗物或药水可以影响） → 消耗能量出牌 → 回合结束弃牌 → 牌库空时洗牌。\n");
+        prompt.append("【能量】每回合3点能量（遗物或药水可以影响），需合理分配避免浪费。\n");
+        prompt.append("【卡牌类型】攻击牌（造成伤害）、技能牌（各种效果）、能力牌（持续生效）。\n");
+        prompt.append("【关键状态】格挡（抵消伤害/下回合清空）、力量（攻击伤害+N）、中毒（每回合扣血）。\n");
+        prompt.append("【构筑原则】提前规划构筑流派,优先抓取高质量单卡或流派核心组件,避免盲目拿牌导致卡组臃肿卡手。\n\n");
+
+
         prompt.append("## 记忆机制\n");
         prompt.append("你有对话记忆能力，可以记住之前的工具调用和结果。\n");
         prompt.append("- 如果已经获取过某些信息，不需要重复调用工具\n");
@@ -866,29 +883,59 @@ public class GameAgent {
             prompt.append("- ").append(tool.getId()).append(": ").append(tool.getDescription()).append("\n");
         }
 
+        // 注入Archetype Cards
+        prompt.append("## 可参考的出牌/卡组构筑攻略技巧:\n");
+        prompt.append("以下是当前角色卡组构筑可用的流派技巧，当玩家手牌/牌组包含核心卡牌时，应参考对应流派策略：\n\n");
+        prompt.append(getArchetypeCardsForPrompt());
+        prompt.append("\n提示：使用 get_tactical_knowledge 工具可获取详细的流派策略文档。\n\n");
+
         prompt.append("\n## 工作流程\n");
         prompt.append("1. 获取用户偏好，了解玩家的游戏风格\n");
         prompt.append("2. 检查是否有已缓存的信息可以复用\n");
         prompt.append("3. 调用必要的实时信息工具获取最新数据\n");
-        prompt.append("4. 结合用户偏好和当前局势给出建议\n");
+        prompt.append("4. 结合用户偏好和当前局势、可用游戏技巧给出建议\n");
         prompt.append("5. 如果用户表达了新的偏好，保存它\n\n");
 
         prompt.append("## 输出格式\n");
         prompt.append("直接给出你的分析和建议，使用友好的语气。\n");
 
+
         if ("battle".equals(scenario)) {
-            prompt.append("\n## 战斗场景输出格式\n");
-            prompt.append("【出牌顺序】\n");
-            prompt.append("[卡牌索引] 卡牌名 -> 目标：简短理由\n");
-            prompt.append("\n【策略】一句话核心策略（不超过20字）\n");
+            prompt.append("## 战斗场景输出格式\n");
+            prompt.append("【出牌】[索引]卡牌名→目标：理由\n");
+            prompt.append("【策略】一句话（≤20字）\n");
         } else if ("reward".equals(scenario)) {
-            prompt.append("\n## 奖励场景输出格式\n");
-            prompt.append("【推荐】[卡牌索引] 卡牌名：简短理由\n");
-            prompt.append("【备选】[卡牌索引] 卡牌名：简短理由（可选）\n");
-            prompt.append("\n【跳过】是/否：简短理由\n");
+            prompt.append("## 奖励场景输出格式\n");
+            prompt.append("【推荐】[索引]卡牌名：理由\n");
+            prompt.append("【跳过奖励】是/否：理由\n");
         }
 
         return prompt.toString();
+    }
+
+    /**
+     * 获取archetype cards用于System Prompt
+     */
+    private String getArchetypeCardsForPrompt() {
+        // 获取当前角色（从context中获取，这里暂时返回所有角色的cards）
+        // TODO: 根据实际游戏角色动态筛选
+        if (!archetypeLoader.isLoaded()) {
+            return "（流派信息加载失败）";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        // 按角色分组
+        sb.append("### 铁甲战士\n");
+        sb.append(archetypeLoader.getArchetypeCards("IRONCLAD"));
+
+        sb.append("\n### 静默猎人\n");
+        sb.append(archetypeLoader.getArchetypeCards("THE_SILENT"));
+
+        sb.append("\n### 故障机器人\n");
+        sb.append(archetypeLoader.getArchetypeCards("DEFECT"));
+
+        return sb.toString();
     }
 
     /**

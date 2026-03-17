@@ -5,6 +5,7 @@ import com.stsaiadvisor.capture.RewardSceneCapture;
 import com.stsaiadvisor.model.CardState;
 import com.stsaiadvisor.model.EnemyState;
 import com.stsaiadvisor.model.PlayerState;
+import com.stsaiadvisor.model.PotionState;
 import com.stsaiadvisor.model.RelicState;
 import com.stsaiadvisor.model.SceneContext;
 
@@ -197,13 +198,25 @@ public class GameContext {
     /**
      * 获取药水信息
      *
-     * <p>TODO: 需要从游戏状态捕获药水信息
-     *
-     * @return 药水列表（暂返回空列表）
+     * @return 药水列表
      */
     public List<String> getPotions() {
-        // TODO: 实现药水捕获
-        return new ArrayList<>();
+        if (cachedContext == null) {
+            refreshContext();
+        }
+        if (cachedContext == null) {
+            return new ArrayList<>();
+        }
+        List<PotionState> potions = cachedContext.getPotions();
+        if (potions == null || potions.isEmpty()) {
+            return new ArrayList<>();
+        }
+        // 转换为字符串列表格式
+        List<String> result = new ArrayList<>();
+        for (PotionState potion : potions) {
+            result.add(potion.getFullInfo());
+        }
+        return result;
     }
 
     // ========== 卡牌奖励 ==========

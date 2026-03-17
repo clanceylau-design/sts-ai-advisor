@@ -75,7 +75,10 @@ function createMessageEl(msg) {
     const escaped = escapeHtml(msg.text);
     const html = escaped.replace(/\n/g, '<br>');
 
-    if (msg.type === 'prompt') {
+    if (msg.type === 'status') {
+        // 紧凑单行：只显示文本，无时间戳
+        el.innerHTML = '<div class="message-text">' + html + '</div>';
+    } else if (msg.type === 'prompt') {
         el.innerHTML = '<div class="message-text">' + html + '</div>'
             + '<div class="message-time">' + formatTime(msg.timestamp) + '</div>';
     } else if (msg.type === 'loading') {

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "strength-scaling",
+    "name": "力量叠加流",
+    "character": "ironclad",
+    "core_mechanism": "通过力量buff使每张攻击牌的伤害倍增，单卡价值随力量线性增长",
+    "essential_cards": ["突破极限", "双持", "恶魔形态"],
+    "synergy_cards": ["重刃", "连击", "剑柄打击"],
+    "anti_synergy_cards": ["全能", "岿然不动"],
+    "formation_signals": [
+      "拥有2张以上力量来源",
+      "卡组攻击牌平均伤害>8",
+      "有重刃/连击等力量乘数牌"
+    ],
+    "relic_priority": ["工具箱", "陀螺", "日晷"],
+    "key_potions": ["力量药水", "液态记忆"],
+    "strengths": ["后期爆发极高", "遗物协同强"],
+    "weaknesses": ["前期脆弱", "启动慢", "怕多层小怪"],
+    "boss_matchup": {
+      "favorable": ["六火鬼", "天罚"],
+      "unfavorable": ["时间吞噬者", "心脏"]
+    },
+    "risk_level": "high",
+    "difficulty": "intermediate",
+    "scaling_type": "late_game",
+    "skill_path": "skills/ironclad/strength-scaling/SKILL.md",
+    "source": "",
+    "notes": ""
+  },
+  {
+    "id": "block-deck",
+    "name": "防御流",
+    "character": "ironclad",
+    "core_mechanism": "高格挡+岿然不动实现无敌防御，靠回血/小伤害慢慢磨死敌人",
+    "essential_cards": ["岿然不动", "幽灵铠甲"],
+    "synergy_cards": ["火焰护盾", "双持"],
+    "anti_synergy_cards": [],
+    "formation_signals": [
+      "拥有岿然不动",
+      "多张高格挡牌（格挡≥15）",
+      "有火焰护盾/双持等格挡乘数"
+    ],
+    "relic_priority": ["锚", "蛇蛋", "陀螺"],
+    "key_potions": ["格挡药水", "灵巧药水"],
+    "strengths": ["稳定性高", "不怕Boss"],
+    "weaknesses": ["输出低", "战斗时间长", "怕破甲敌人"],
+    "boss_matchup": {
+      "favorable": ["心脏", "时间吞噬者"],
+      "unfavorable": ["六火鬼（多层伤害）"]
+    },
+    "risk_level": "low",
+    "difficulty": "beginner",
+    "scaling_type": "mid_game",
+    "skill_path": "skills/ironclad/block-deck/SKILL.md",
+    "source": "",
+    "notes": ""
+  }
+]

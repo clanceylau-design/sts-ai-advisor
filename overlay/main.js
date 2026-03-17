@@ -339,13 +339,19 @@ function handlePostRequest(url, data, res) {
             res.end(JSON.stringify({ success: true }));
             break;
 
-        case '/stream-start':
-            // 流式开始：创建 loading 消息
+        case '/stream-start': {
+            // 流式开始：将前一条 loading 降级为 status（紧凑显示），再创建新 loading
             safeLog('[Overlay] 流式开始');
+            const prev = messages[messages.length - 1];
+            if (prev && prev.type === 'loading') {
+                prev.type = 'status';
+                updateLast(prev);
+            }
             pushMessage(createMessage('loading', ''));
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ success: true }));
             break;
+        }
 
         case '/stream-chunk':
             // 流式追加文本
