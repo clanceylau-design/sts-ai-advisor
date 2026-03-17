@@ -58,7 +58,7 @@ public class GameAgent {
     private static final Gson GSON = new Gson();
 
     /** 最大Tool Call轮次 */
-    private static final int MAX_TOOL_ROUNDS = 5;
+    private static final int MAX_TOOL_ROUNDS = 10;
 
     /** 最大Token数量（约4KB上下文） */
     private static final int MAX_CONTEXT_TOKENS = 4000;
@@ -242,7 +242,7 @@ public class GameAgent {
             requestBody.addProperty("model", config.getModel());
             requestBody.add("messages", GSON.toJsonTree(messages).getAsJsonArray());
             requestBody.add("tools", tools);
-            requestBody.addProperty("max_tokens", 1024);
+            requestBody.addProperty("max_tokens", 2048);
             requestBody.addProperty("temperature", 0.7);
 
             // 统一使用流式调用
@@ -261,6 +261,7 @@ public class GameAgent {
 
                 // 处理每个tool call
                 for (JsonObject toolCall : result.toolCalls) {
+                    System.out.println("[GameAgent] Processing tool_call: " + toolCall.toString());
                     // 获取tool call ID
                     String toolCallId;
                     if (toolCall.has("id") && !toolCall.get("id").isJsonNull() && !toolCall.get("id").getAsString().isEmpty()) {
@@ -889,12 +890,18 @@ public class GameAgent {
         prompt.append(getArchetypeCardsForPrompt());
         prompt.append("\n提示：使用 get_tactical_knowledge 工具可获取详细的流派策略文档。\n\n");
 
-        prompt.append("\n## 工作流程\n");
-        prompt.append("1. 获取用户偏好，了解玩家的游戏风格\n");
-        prompt.append("2. 检查是否有已缓存的信息可以复用\n");
-        prompt.append("3. 调用必要的实时信息工具获取最新数据\n");
-        prompt.append("4. 结合用户偏好和当前局势、可用游戏技巧给出建议\n");
-        prompt.append("5. 如果用户表达了新的偏好，保存它\n\n");
+        prompt.append("## 工作流程\n" +
+                "1. 调用 get_user_preferences、get_player_state、get_hand_cards、get_enemies\n" +
+                "2. 如尚未获取遗物/牌组信息，调用 get_relics、get_deck（稳定信息，同一战斗内无需重复调用）\n" +
+                "3. 调用 get_tactical_knowledge，获取流派知识\n" +
+                "4. 进行出牌前分析（必须在输出建议前完成，且必须写出以下内容）：\n" +
+                "   - 敌人意图：[攻击/强化/睡眠/…] → 本回合是否需要格挡？\n" +
+                "   - 遗物约束检查：当前遗物是否影响格挡/伤害策略？（例：奥利哈钢→无格挡时自动补6，避免手动打低效防御）\n" +
+                "   - 手牌约束检查：逐张列出每张牌的类型，标注有条件限制的牌是否满足打出前提\n" +
+                "   - 能量分配：列出候选出牌组合及对应总伤害/格挡值\n" +
+                "   - 用户偏好对照：当前建议是否与已记录偏好冲突？\n" +
+                "5. 给出最终建议\n" +
+                "6. 若用户纠正或表达偏好，调用 save_user_preference\n");
 
         prompt.append("## 输出格式\n");
         prompt.append("直接给出你的分析和建议，使用友好的语气。\n");

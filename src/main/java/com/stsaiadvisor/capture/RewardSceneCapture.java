@@ -139,6 +139,9 @@ public class RewardSceneCapture {
             // 遗物
             context.setRelics(captureRelics());
 
+            // 药水
+            context.setPotions(capturePotions());
+
             // 层数
             context.setAct(AbstractDungeon.actNum);
 
@@ -267,6 +270,30 @@ public class RewardSceneCapture {
     }
 
     /**
+     * 捕获药水列表
+     */
+    private List<PotionState> capturePotions() {
+        List<PotionState> potions = new ArrayList<>();
+        if (AbstractDungeon.player == null || AbstractDungeon.player.potions == null) {
+            return potions;
+        }
+
+        int slot = 0;
+        for (com.megacrit.cardcrawl.potions.AbstractPotion potion : AbstractDungeon.player.potions) {
+            if (potion != null && potion.name != null && !potion.name.isEmpty()) {
+                PotionState state = new PotionState();
+                state.setId(potion.ID);
+                state.setName(potion.name);
+                state.setDescription(potion.description);
+                state.setSlot(slot);
+                potions.add(state);
+            }
+            slot++;
+        }
+        return potions;
+    }
+
+    /**
      * 转换游戏卡牌到模型
      */
     private CardState convertCard(AbstractCard card, int index) {
@@ -275,12 +302,25 @@ public class RewardSceneCapture {
         state.setName(card.name);
         state.setCost(card.cost);
         state.setType(card.type != null ? card.type.name() : "UNKNOWN");
-        state.setDamage(card.baseDamage);
-        state.setBlock(card.baseBlock);
+
+        // 使用实际值（damage/block 已经过计算，magicNumber 是魔法数值）
+        state.setDamage(card.damage);
+        state.setBlock(card.block);
         state.setUpgraded(card.upgraded);
         state.setEthereal(card.isEthereal);
         state.setExhausts(card.exhaust);
-        state.setDescription(card.rawDescription);
+
+        // 替换描述中的动态数值占位符
+        String description = card.rawDescription;
+        if (description != null) {
+            // !D! = 伤害值
+            description = description.replace("!D!", String.valueOf(card.damage));
+            // !B! = 格挡值
+            description = description.replace("!B!", String.valueOf(card.block));
+            // !M! = 魔法数值
+            description = description.replace("!M!", String.valueOf(card.magicNumber));
+        }
+        state.setDescription(description);
         state.setCardIndex(index);
         return state;
     }
@@ -300,6 +340,7 @@ public class RewardSceneCapture {
 
         System.out.println("Deck size: " + (context.getDeck() != null ? context.getDeck().size() : 0));
         System.out.println("Relics: " + (context.getRelics() != null ? context.getRelics().size() : 0));
+        System.out.println("Potions: " + (context.getPotions() != null ? context.getPotions().size() : 0));
         System.out.println("Reward cards: " + rewardCards.size());
         for (CardState card : rewardCards) {
             System.out.println("  [" + card.getCardIndex() + "] " + card.getName() + " (" + card.getCost() + "费)");
