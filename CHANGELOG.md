@@ -2,6 +2,110 @@
 
 所有重要的项目变更都将记录在此文件中。
 
+## [0.8.0] - 2026-03-19
+
+### 新增游戏状态检测工具 & 场景检测修复
+
+本次更新新增5个游戏状态检测工具和1个战斗计算工具，修复商店场景误判bug，完善商店场景自动触发。
+
+#### 新增工具
+
+| 工具ID | 场景限制 | 功能 |
+|--------|----------|------|
+| `get_reward_items` | 仅 reward | 获取奖励界面的遗物/药水奖励 |
+| `get_map_info` | 所有场景 | 获取地图结构和玩家当前位置 |
+| `get_boss_info` | 所有场景 | 获取当前幕的最终Boss信息 |
+| `get_piles` | 仅 battle | 获取抽牌堆/弃牌堆/消耗牌堆信息 |
+| `get_shop_items` | 仅 shop | 获取商店商品（卡牌、遗物、药水）及价格 |
+| `calculate_guaranteed_damage` | 仅 battle | 计算当前能量和手牌下的最大保底伤害 |
+
+#### GuaranteedDamageCalculator 设计
+
+贪心算法计算保底伤害：
+- 优先选择伤害/能量比最高的牌
+- 多目标攻击牌自动计算对所有敌人的总伤害
+- 返回最优出牌序列和总伤害
+
+```json
+{
+  "total_energy": 3,
+  "max_guaranteed_damage": 24,
+  "optimal_sequence": [
+    {"name": "重刃", "cost": 2, "damage": 14, "damage_per_energy": 7.0},
+    {"name": "打击", "cost": 1, "damage": 6, "damage_per_energy": 6.0}
+  ]
+}
+```
+
+#### 新增场景策略
+
+| 场景 | 默认提示词 | 系统提示词 |
+|------|-----------|-----------|
+| **shop** | 帮我分析一下商店里值得买的东西 | 商店场景策略，分析商品性价比 |
+| **map** | 帮我分析一下接下来的路线选择 | 地图场景策略，分析路线选择 |
+
+#### 场景检测修复
+
+**问题**：战斗场景被误判为商店场景
+
+**原因**：`ShopSceneCapture.isInShop()` 只检查 `shopScreen.isActive`，未检查当前屏幕类型
+
+**修复**：
+1. `isInShop()` 增加 `AbstractDungeon.screen == CurrentScreen.SHOP` 检查
+2. 调整场景检测顺序：战斗 > 奖励 > 商店 > 通用
+
+```
+检测优先级：战斗场景 > 奖励场景 > 商店场景
+原因：战斗场景检测最可靠（玩家+房间状态+活着的怪物），且最常见
+```
+
+#### 卡牌数值修复
+
+**问题**：奖励界面的卡牌伤害/格挡显示为 -1
+
+**原因**：非战斗场景下 `card.damage`/`card.block` 未初始化
+
+**修复**：使用 `baseDamage`/`baseBlock` 作为备选值
+
+```java
+int damageValue = card.damage >= 0 ? card.damage : card.baseDamage;
+int blockValue = card.block >= 0 ? card.block : card.baseBlock;
+```
+
+#### 新增文件
+
+| 文件 | 用途 |
+|------|------|
+| `model/MapNodeState.java` | 地图节点模型 |
+| `model/MapInfoState.java` | 地图完整结构 |
+| `model/PileState.java` | 牌堆信息模型 |
+| `model/RewardItemsState.java` | 奖励物品模型 |
+| `model/BossInfoState.java` | Boss信息模型 |
+| `model/ShopItemsState.java` | 商店商品模型 |
+| `capture/MapStateCapture.java` | 地图状态捕获 |
+| `capture/ShopSceneCapture.java` | 商店场景捕获 |
+| `tool/GetRewardItemsTool.java` | 奖励物品工具 |
+| `tool/GetMapInfoTool.java` | 地图信息工具 |
+| `tool/GetBossInfoTool.java` | Boss信息工具 |
+| `tool/GetPilesTool.java` | 牌堆信息工具 |
+| `tool/GetShopItemsTool.java` | 商店商品工具 |
+| `tool/GuaranteedDamageCalculator.java` | 保底伤害计算器 |
+| `event/ShopEventListener.java` | 商店场景事件监听器 |
+
+#### 工具场景限制
+
+| 工具 | battle | reward | shop | general |
+|------|--------|--------|------|---------|
+| get_hand_cards | ✅ | ❌ | ❌ | ❌ |
+| get_enemies | ✅ | ❌ | ❌ | ❌ |
+| get_piles | ✅ | ❌ | ❌ | ❌ |
+| calculate_guaranteed_damage | ✅ | ❌ | ❌ | ❌ |
+| get_card_rewards | ❌ | ✅ | ❌ | ❌ |
+| get_reward_items | ❌ | ✅ | ❌ | ❌ |
+| get_shop_items | ❌ | ❌ | ✅ | ❌ |
+
+---
+
 ## [0.7.0] - 2026-03-17
 
 ### 流式输出重构

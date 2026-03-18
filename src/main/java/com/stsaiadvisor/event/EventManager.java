@@ -14,12 +14,13 @@ import com.stsaiadvisor.ui.KeyInputListener;
  * <p>职责：
  * <ul>
  *   <li>管理所有场景的事件监听器</li>
- *   <li>协调战斗场景和奖励场景的事件处理</li>
+ *   <li>协调战斗场景、奖励场景和商店场景的事件处理</li>
  *   <li>支持通用场景对话</li>
  * </ul>
  *
  * @see BattleEventListener
  * @see RewardEventListener
+ * @see ShopEventListener
  */
 public class EventManager implements PostUpdateSubscriber {
 
@@ -34,6 +35,9 @@ public class EventManager implements PostUpdateSubscriber {
 
     /** 奖励场景事件监听器 */
     private RewardEventListener rewardEventListener;
+
+    /** 商店场景事件监听器 */
+    private ShopEventListener shopEventListener;
 
     /** 热键监听器 */
     private KeyInputListener keyInputListener;
@@ -54,6 +58,9 @@ public class EventManager implements PostUpdateSubscriber {
 
         // 奖励场景监听器
         rewardEventListener = new RewardEventListener(gameAgent);
+
+        // 商店场景监听器
+        shopEventListener = new ShopEventListener(gameAgent);
 
         // 热键监听器
         keyInputListener = new KeyInputListener();
@@ -90,6 +97,8 @@ public class EventManager implements PostUpdateSubscriber {
                     battleEventListener.requestManualAdvice();
                 } else if (rewardEventListener.isInCardReward()) {
                     rewardEventListener.requestManualAdvice();
+                } else if (shopEventListener.isInShop()) {
+                    shopEventListener.requestManualAdvice();
                 } else {
                     // 通用场景
                     triggerGeneralAnalysis();
@@ -97,7 +106,7 @@ public class EventManager implements PostUpdateSubscriber {
             }
         );
 
-        System.out.println("[EventManager] Initialized with Battle + Reward + General support");
+        System.out.println("[EventManager] Initialized with Battle + Reward + Shop + General support");
     }
 
     @Override
@@ -115,6 +124,10 @@ public class EventManager implements PostUpdateSubscriber {
 
     public RewardEventListener getRewardEventListener() {
         return rewardEventListener;
+    }
+
+    public ShopEventListener getShopEventListener() {
+        return shopEventListener;
     }
 
     /**

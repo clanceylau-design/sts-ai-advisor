@@ -303,9 +303,13 @@ public class RewardSceneCapture {
         state.setCost(card.cost);
         state.setType(card.type != null ? card.type.name() : "UNKNOWN");
 
-        // 使用实际值（damage/block 已经过计算，magicNumber 是魔法数值）
-        state.setDamage(card.damage);
-        state.setBlock(card.block);
+        // 使用实际值，如果为-1则使用基础值（奖励场景下 damage/block 可能未初始化）
+        int damageValue = card.damage >= 0 ? card.damage : card.baseDamage;
+        int blockValue = card.block >= 0 ? card.block : card.baseBlock;
+        int magicValue = card.magicNumber;
+
+        state.setDamage(damageValue);
+        state.setBlock(blockValue);
         state.setUpgraded(card.upgraded);
         state.setEthereal(card.isEthereal);
         state.setExhausts(card.exhaust);
@@ -314,11 +318,11 @@ public class RewardSceneCapture {
         String description = card.rawDescription;
         if (description != null) {
             // !D! = 伤害值
-            description = description.replace("!D!", String.valueOf(card.damage));
+            description = description.replace("!D!", String.valueOf(damageValue));
             // !B! = 格挡值
-            description = description.replace("!B!", String.valueOf(card.block));
+            description = description.replace("!B!", String.valueOf(blockValue));
             // !M! = 魔法数值
-            description = description.replace("!M!", String.valueOf(card.magicNumber));
+            description = description.replace("!M!", String.valueOf(magicValue));
         }
         state.setDescription(description);
         state.setCardIndex(index);
@@ -346,5 +350,109 @@ public class RewardSceneCapture {
             System.out.println("  [" + card.getCardIndex() + "] " + card.getName() + " (" + card.getCost() + "费)");
         }
         System.out.println("=========================================");
+    }
+
+    // ========== 新增：奖励物品捕获方法 ==========
+
+    /**
+     * 捕获奖励界面中的遗物和药水奖励
+     *
+     * @return RewardItemsState 包含遗物奖励、药水奖励和金币奖励
+     */
+    public RewardItemsState captureRewardItems() {
+        RewardItemsState state = new RewardItemsState();
+
+        if (AbstractDungeon.combatRewardScreen == null
+            || AbstractDungeon.combatRewardScreen.rewards == null) {
+            System.out.println("[RewardCapture] captureRewardItems: No reward screen available");
+            return state;
+        }
+
+        int index = 0;
+        for (RewardItem reward : AbstractDungeon.combatRewardScreen.rewards) {
+            if (reward == null) continue;
+
+            // 使用字符串比较，避免枚举兼容性问题
+            String typeName = reward.type != null ? reward.type.name() : "";
+
+            if ("RELIC".equals(typeName)) {
+                RewardItemsState.RewardItem relicItem = new RewardItemsState.RewardItem();
+                relicItem.setIndex(index);
+                if (reward.relic != null) {
+                    relicItem.setId(reward.relic.relicId);
+                    relicItem.setName(reward.relic.name);
+                    relicItem.setDescription(reward.relic.description);
+                } else {
+                    relicItem.setName("未知遗物");
+                }
+                state.addRelicReward(relicItem);
+            } else if ("POTION".equals(typeName)) {
+                RewardItemsState.RewardItem potionItem = new RewardItemsState.RewardItem();
+                potionItem.setIndex(index);
+                if (reward.potion != null) {
+                    potionItem.setId(reward.potion.ID);
+                    potionItem.setName(reward.potion.name);
+                    potionItem.setDescription(reward.potion.description);
+                } else {
+                    potionItem.setName("未知药水");
+                }
+                state.addPotionReward(potionItem);
+            } else if ("GOLD".equals(typeName)) {
+                RewardItemsState.GoldReward goldReward = new RewardItemsState.GoldReward();
+                goldReward.setIndex(index);
+                goldReward.setAmount(reward.goldAmt);
+                state.addGoldReward(goldReward);
+            } else if ("EMERALD_KEY".equals(typeName)) {
+                state.setHasEmeraldKey(true);
+            } else if ("SAPPHIRE_KEY".equals(typeName)) {
+                state.setHasSapphireKey(true);
+            } else if ("RUBY_KEY".equals(typeName)) {
+                state.setHasRubyKey(true);
+            }
+            // CARD 类型已在 captureRewardCards() 中处理
+
+            index++;
+        }
+
+        // 调试日志
+        debugPrintRewardItems(state);
+
+        return state;
+    }
+
+    /**
+     * 调试输出奖励物品信息
+     */
+    private void debugPrintRewardItems(RewardItemsState state) {
+        System.out.println("========== RewardItems Debug ==========");
+
+        if (!state.getRelicRewards().isEmpty()) {
+            System.out.println("Relic Rewards:");
+            for (RewardItemsState.RewardItem relic : state.getRelicRewards()) {
+                System.out.println("  [" + relic.getIndex() + "] " + relic.getName());
+            }
+        }
+
+        if (!state.getPotionRewards().isEmpty()) {
+            System.out.println("Potion Rewards:");
+            for (RewardItemsState.RewardItem potion : state.getPotionRewards()) {
+                System.out.println("  [" + potion.getIndex() + "] " + potion.getName());
+            }
+        }
+
+        if (!state.getGoldRewards().isEmpty()) {
+            System.out.println("Gold Rewards:");
+            for (RewardItemsState.GoldReward gold : state.getGoldRewards()) {
+                System.out.println("  [" + gold.getIndex() + "] " + gold.getAmount() + " gold");
+            }
+        }
+
+        if (state.isHasEmeraldKey() || state.isHasSapphireKey() || state.isHasRubyKey()) {
+            System.out.println("Keys: Emerald=" + state.isHasEmeraldKey()
+                + " Sapphire=" + state.isHasSapphireKey()
+                + " Ruby=" + state.isHasRubyKey());
+        }
+
+        System.out.println("========================================");
     }
 }

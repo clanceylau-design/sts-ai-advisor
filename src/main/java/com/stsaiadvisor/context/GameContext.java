@@ -1,13 +1,10 @@
 package com.stsaiadvisor.context;
 
 import com.stsaiadvisor.capture.BattleStateCapture;
+import com.stsaiadvisor.capture.MapStateCapture;
 import com.stsaiadvisor.capture.RewardSceneCapture;
-import com.stsaiadvisor.model.CardState;
-import com.stsaiadvisor.model.EnemyState;
-import com.stsaiadvisor.model.PlayerState;
-import com.stsaiadvisor.model.PotionState;
-import com.stsaiadvisor.model.RelicState;
-import com.stsaiadvisor.model.SceneContext;
+import com.stsaiadvisor.capture.ShopSceneCapture;
+import com.stsaiadvisor.model.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +29,12 @@ public class GameContext {
     /** 奖励场景捕获器 */
     private final RewardSceneCapture rewardCapture;
 
+    /** 地图状态捕获器 */
+    private final MapStateCapture mapCapture;
+
+    /** 商店场景捕获器 */
+    private final ShopSceneCapture shopCapture;
+
     /** 缓存的场景上下文 */
     private SceneContext cachedContext;
 
@@ -44,6 +47,8 @@ public class GameContext {
     public GameContext() {
         this.battleCapture = new BattleStateCapture();
         this.rewardCapture = new RewardSceneCapture();
+        this.mapCapture = new MapStateCapture();
+        this.shopCapture = new ShopSceneCapture();
     }
 
     /**
@@ -51,10 +56,11 @@ public class GameContext {
      *
      * <p>捕获当前游戏状态并缓存
      *
-     * <p>检测顺序：奖励场景优先于战斗场景检测
+     * <p>检测顺序：战斗场景 > 奖励场景 > 商店场景
      * <ul>
-     *   <li>原因：战斗胜利后，房间phase变为COMPLETE，但怪物列表可能仍存在</li>
-     *   <li>如果奖励界面正在显示，应该优先识别为奖励场景</li>
+     *   <li>战斗场景检测最可靠（检查玩家、房间状态、活着的怪物），优先检测</li>
+     *   <li>奖励场景在战斗结束后显示，需检查 combatRewardScreen</li>
+     *   <li>商店场景检查 CurrentScreen.SHOP</li>
      * </ul>
      *
      * <p>如果不在任何特定场景，设置为 general 通用场景，允许用户随时对话
@@ -65,7 +71,17 @@ public class GameContext {
         cachedContext = null;
         currentScenario = null;
 
-        // 优先检查奖励场景（战斗胜利后显示奖励界面）
+        // 优先检查战斗场景（检测最可靠、最常见）
+        if (battleCapture.isInBattle()) {
+            System.out.println("[GameContext] Detected battle scene");
+            cachedContext = battleCapture.captureSceneContext();
+            currentScenario = "battle";
+            if (cachedContext != null) {
+                return true;
+            }
+        }
+
+        // 检查奖励场景（战斗胜利后显示奖励界面）
         if (rewardCapture.isInCardReward()) {
             System.out.println("[GameContext] Detected reward scene");
             cachedContext = rewardCapture.capture();
@@ -75,12 +91,11 @@ public class GameContext {
             }
         }
 
-        // 再检查战斗场景
-        if (battleCapture.isInBattle()) {
-            System.out.println("[GameContext] Detected battle scene");
-            cachedContext = battleCapture.captureSceneContext();
-            currentScenario = "battle";
-            return cachedContext != null;
+        // 检查商店场景
+        if (shopCapture.isInShop()) {
+            System.out.println("[GameContext] Detected shop scene");
+            currentScenario = "shop";
+            return true;
         }
 
         // 不在任何特定场景，设置为 general 通用场景
@@ -295,7 +310,14 @@ public class GameContext {
     }
 
     /**
-     * 是否在通用场景（非战斗/奖励）
+     * 是否在商店界面
+     */
+    public boolean isInShop() {
+        return "shop".equals(currentScenario);
+    }
+
+    /**
+     * 是否在通用场景（非战斗/奖励/商店）
      */
     public boolean isGeneral() {
         return "general".equals(currentScenario);
@@ -315,5 +337,92 @@ public class GameContext {
      */
     public RewardSceneCapture getRewardCapture() {
         return rewardCapture;
+    }
+
+    /**
+     * 获取地图状态捕获器
+     */
+    public MapStateCapture getMapCapture() {
+        return mapCapture;
+    }
+
+    // ========== 奖励物品（遗物/药水） ==========
+
+    /**
+     * 获取奖励界面中的遗物和药水奖励
+     *
+     * @return 奖励物品状态
+     */
+    public RewardItemsState getRewardItems() {
+        if (cachedContext == null) {
+            refreshContext();
+        }
+        if (!"reward".equals(currentScenario)) {
+            return new RewardItemsState();
+        }
+        return rewardCapture.captureRewardItems();
+    }
+
+    // ========== 地图信息 ==========
+
+    /**
+     * 获取地图信息
+     *
+     * @return 地图状态
+     */
+    public MapInfoState getMapInfo() {
+        return mapCapture.captureMapInfo();
+    }
+
+    // ========== Boss信息 ==========
+
+    /**
+     * 获取Boss信息
+     *
+     * @return Boss状态
+     */
+    public BossInfoState getBossInfo() {
+        return mapCapture.captureBossInfo();
+    }
+
+    // ========== 牌堆信息 ==========
+
+    /**
+     * 获取牌堆信息（抽牌堆、弃牌堆、消耗牌堆）
+     *
+     * @return 牌堆状态
+     */
+    public PileState getPiles() {
+        if (cachedContext == null) {
+            refreshContext();
+        }
+        if (!"battle".equals(currentScenario)) {
+            return new PileState();
+        }
+        return battleCapture.capturePiles();
+    }
+
+    // ========== 商店商品 ==========
+
+    /**
+     * 获取商店商品信息
+     *
+     * @return 商店商品状态
+     */
+    public ShopItemsState getShopItems() {
+        if (cachedContext == null) {
+            refreshContext();
+        }
+        if (!"shop".equals(currentScenario)) {
+            return new ShopItemsState();
+        }
+        return shopCapture.captureShopItems();
+    }
+
+    /**
+     * 获取商店场景捕获器
+     */
+    public ShopSceneCapture getShopCapture() {
+        return shopCapture;
     }
 }

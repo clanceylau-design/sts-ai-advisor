@@ -596,4 +596,144 @@ public class BattleStateCapture {
         sb.append(" | Enemies: ").append(ctx.getEnemies().size());
         return sb.toString();
     }
+
+    // ========== 增强版牌堆捕获方法 ==========
+
+    /**
+     * 捕获完整的牌堆信息（抽牌堆、弃牌堆、消耗牌堆）
+     *
+     * @return PileState 包含三个牌堆的详细统计信息
+     */
+    public PileState capturePiles() {
+        PileState pileState = new PileState();
+
+        // 抽牌堆
+        pileState.setDrawPile(capturePileInfo(AbstractDungeon.player.drawPile));
+
+        // 弃牌堆
+        pileState.setDiscardPile(capturePileInfo(AbstractDungeon.player.discardPile));
+
+        // 消耗牌堆
+        pileState.setExhaustPile(capturePileInfo(AbstractDungeon.player.exhaustPile));
+
+        // 调试日志
+        debugPrintPiles(pileState);
+
+        return pileState;
+    }
+
+    /**
+     * 调试输出牌堆信息
+     */
+    private void debugPrintPiles(PileState pileState) {
+        System.out.println("========== Piles Debug ==========");
+        System.out.println("Draw Pile: " + pileState.getDrawPile().getCount() + " cards");
+        System.out.println("  Type stats: ATK=" + pileState.getDrawPile().getTypeStats().getAttack()
+            + " SKL=" + pileState.getDrawPile().getTypeStats().getSkill()
+            + " PWR=" + pileState.getDrawPile().getTypeStats().getPower());
+
+        System.out.println("Discard Pile: " + pileState.getDiscardPile().getCount() + " cards");
+        if (!pileState.getDiscardPile().getPreview().isEmpty()) {
+            System.out.print("  Preview: ");
+            for (CardState card : pileState.getDiscardPile().getPreview()) {
+                System.out.print(card.getName() + " ");
+            }
+            System.out.println();
+        }
+
+        System.out.println("Exhaust Pile: " + pileState.getExhaustPile().getCount() + " cards");
+        if (!pileState.getExhaustPile().getPreview().isEmpty()) {
+            System.out.print("  Preview: ");
+            for (CardState card : pileState.getExhaustPile().getPreview()) {
+                System.out.print(card.getName() + " ");
+            }
+            System.out.println();
+        }
+        System.out.println("==================================");
+    }
+
+    /**
+     * 捕获单个牌堆的详细信息
+     *
+     * @param cardGroup 牌堆
+     * @return PileInfo 包含数量、预览和类型统计
+     */
+    private PileState.PileInfo capturePileInfo(com.megacrit.cardcrawl.cards.CardGroup cardGroup) {
+        PileState.PileInfo info = new PileState.PileInfo();
+
+        if (cardGroup == null || cardGroup.group == null) {
+            return info;
+        }
+
+        // 总数量
+        info.setCount(cardGroup.size());
+
+        // 类型统计
+        PileState.TypeStats stats = info.getTypeStats();
+
+        // 预览前5张卡牌
+        int previewCount = Math.min(5, cardGroup.size());
+        List<CardState> preview = new ArrayList<>();
+        for (int i = 0; i < previewCount; i++) {
+            AbstractCard card = cardGroup.group.get(i);
+            if (card != null) {
+                CardState state = convertCardSimple(card, i);
+                preview.add(state);
+                stats.incrementByType(card.type != null ? card.type.name() : null);
+            }
+        }
+
+        // 统计剩余卡牌类型（不在预览中的）
+        for (int i = previewCount; i < cardGroup.size(); i++) {
+            AbstractCard card = cardGroup.group.get(i);
+            if (card != null) {
+                stats.incrementByType(card.type != null ? card.type.name() : null);
+            }
+        }
+
+        info.setPreview(preview);
+        info.setTypeStats(stats);
+
+        return info;
+    }
+
+    /**
+     * 简化版卡牌转换（用于牌堆预览）
+     */
+    private CardState convertCardSimple(AbstractCard card, int index) {
+        CardState state = new CardState();
+        state.setId(card.cardID);
+        state.setName(card.name);
+        state.setCost(card.cost);
+        state.setType(card.type != null ? card.type.name() : "UNKNOWN");
+        state.setDamage(card.damage);
+        state.setBlock(card.block);
+        state.setUpgraded(card.upgraded);
+        state.setCardIndex(index);
+        return state;
+    }
+
+    /**
+     * 捕获消耗牌堆
+     *
+     * @return 消耗牌堆卡牌列表
+     */
+    public List<CardState> captureExhaustPile() {
+        List<CardState> cards = new ArrayList<>();
+        if (AbstractDungeon.player == null || AbstractDungeon.player.exhaustPile == null) {
+            return cards;
+        }
+
+        int index = 0;
+        for (AbstractCard card : AbstractDungeon.player.exhaustPile.group) {
+            if (card != null) {
+                CardState state = new CardState();
+                state.setName(card.name);
+                state.setType(card.type != null ? card.type.name() : "UNKNOWN");
+                state.setCardIndex(index++);
+                cards.add(state);
+            }
+        }
+        return cards;
+    }
 }

@@ -151,11 +151,21 @@ public class STSAIAdvisorMod implements PostInitializeSubscriber, PostRenderSubs
         toolRegistry.register(new GetPotionsTool());
         toolRegistry.register(new GetCardRewardsTool());
         toolRegistry.register(new GetEventOptionsTool());
-        toolRegistry.register(new GetTacticalKnowledgeTool());
+//        toolRegistry.register(new GetTacticalKnowledgeTool());
 
         // 用户偏好工具
         toolRegistry.register(new GetUserPreferencesTool());
         toolRegistry.register(new SaveUserPreferenceTool());
+
+        // 新增：游戏状态检测工具
+        toolRegistry.register(new GetRewardItemsTool());
+        toolRegistry.register(new GetMapInfoTool());
+        toolRegistry.register(new GetBossInfoTool());
+        toolRegistry.register(new GetPilesTool());
+        toolRegistry.register(new GetShopItemsTool());
+
+        // 战斗计算工具
+        toolRegistry.register(new GuaranteedDamageCalculator());
     }
 
     /**

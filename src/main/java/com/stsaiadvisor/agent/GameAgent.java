@@ -873,8 +873,7 @@ public class GameAgent {
         prompt.append("## 用户偏好学习\n");
         prompt.append("你可以学习和记住用户的游戏偏好：\n");
         prompt.append("- 使用 get_user_preferences 获取用户的历史偏好\n");
-        prompt.append("- 当用户明确表达对某策略的喜好/厌恶，或纠正你的建议时，使用 save_user_preference 保存偏好\n");
-        prompt.append("- 偏好应该是简洁明确的语义描述，例如：'偏好高伤害卡牌'、'不喜欢消耗型策略'\n");
+        prompt.append("- 当用户明确表达对你的建议有不同看法时，使用 save_user_preference 保存偏好\n");
         prompt.append("- 提供建议时应参考用户的偏好，但也要考虑当前局势\n\n");
 
         prompt.append("## 可用工具\n");
@@ -883,38 +882,94 @@ public class GameAgent {
         for (GameTool tool : toolRegistry.getAvailableTools(scenario)) {
             prompt.append("- ").append(tool.getId()).append(": ").append(tool.getDescription()).append("\n");
         }
-
-        // 注入Archetype Cards
-        prompt.append("## 可参考的出牌/卡组构筑攻略技巧:\n");
-        prompt.append("以下是当前角色卡组构筑可用的流派技巧，当玩家手牌/牌组包含核心卡牌时，应参考对应流派策略：\n\n");
-        prompt.append(getArchetypeCardsForPrompt());
-        prompt.append("\n提示：使用 get_tactical_knowledge 工具可获取详细的流派策略文档。\n\n");
-
-        prompt.append("## 工作流程\n" +
-                "1. 调用 get_user_preferences、get_player_state、get_hand_cards、get_enemies\n" +
-                "2. 如尚未获取遗物/牌组信息，调用 get_relics、get_deck（稳定信息，同一战斗内无需重复调用）\n" +
-                "3. 调用 get_tactical_knowledge，获取流派知识\n" +
-                "4. 进行出牌前分析（必须在输出建议前完成，且必须写出以下内容）：\n" +
-                "   - 敌人意图：[攻击/强化/睡眠/…] → 本回合是否需要格挡？\n" +
-                "   - 遗物约束检查：当前遗物是否影响格挡/伤害策略？（例：奥利哈钢→无格挡时自动补6，避免手动打低效防御）\n" +
-                "   - 手牌约束检查：逐张列出每张牌的类型，标注有条件限制的牌是否满足打出前提\n" +
-                "   - 能量分配：列出候选出牌组合及对应总伤害/格挡值\n" +
-                "   - 用户偏好对照：当前建议是否与已记录偏好冲突？\n" +
-                "5. 给出最终建议\n" +
-                "6. 若用户纠正或表达偏好，调用 save_user_preference\n");
-
-        prompt.append("## 输出格式\n");
-        prompt.append("直接给出你的分析和建议，使用友好的语气。\n");
+        //skills效果太差，先不用
+//        // 注入Archetype Cards
+//        prompt.append("## 可参考的出牌/卡组构筑攻略技巧:\n");
+//        prompt.append("以下是当前角色卡组构筑可用的流派技巧，当玩家手牌/牌组包含核心卡牌时，应参考对应流派策略：\n\n");
+//        prompt.append(getArchetypeCardsForPrompt());
+//        prompt.append("\n提示：使用 get_tactical_knowledge 工具可获取详细的流派策略文档。\n\n");
 
 
         if ("battle".equals(scenario)) {
-            prompt.append("## 战斗场景输出格式\n");
+            prompt.append("## 工作流程\n" +
+                    "1. 调用 get_user_preferences、get_player_state、get_hand_cards、get_enemies\n" +
+                    "2. 如尚未获取遗物/牌组信息，调用 get_relics、get_deck（稳定信息，同一战斗内无需重复调用）\n" +
+                    "3. 调用 get_tactical_knowledge，获取流派知识\n" +
+                    "4. 进行出牌前分析（必须在输出建议前完成，且必须写出以下内容）：\n" +
+                    "   - 敌人意图：[攻击/强化/睡眠/…] → 本回合是否需要格挡？\n" +
+                    "   - 遗物约束检查：当前遗物是否影响格挡/伤害策略？（例：奥利哈钢→无格挡时自动补6，避免手动打低效防御）\n" +
+                    "   - 手牌约束检查：逐张列出每张牌的类型，标注有条件限制的牌是否满足打出前提\n" +
+                    "   - 能量分配：列出候选出牌组合及对应总伤害/格挡值\n" +
+                    "   - 用户偏好对照：当前建议是否与已记录偏好冲突？\n" +
+                    "5. 给出最终建议\n" +
+                    "6. 若用户纠正或表达偏好，调用 save_user_preference\n");
+
+            prompt.append("## 输出格式\n");
+            prompt.append("直接给出你的分析和建议，使用友好的语气。\n");
             prompt.append("【出牌】[索引]卡牌名→目标：理由\n");
             prompt.append("【策略】一句话（≤20字）\n");
         } else if ("reward".equals(scenario)) {
-            prompt.append("## 奖励场景输出格式\n");
+            prompt.append("## 奖励场景分析模板（必须在输出推荐前完整填写）\n" +
+                    "【卡组诊断】\n" +
+                    "- 当前流派方向：___（根据核心牌判断，如\"交锋攻击流\"、\"撕裂力量流\"）\n" +
+                    "- 卡组短板：___（如\"缺AOE\"、\"缺稳定格挡\"、\"缺过牌\"）\n" +
+                    "- 关键遗物约束：___（影响选牌方向的遗物，如\"有奥利哈钢→防御牌价值下降\"）\n" +
+                    "【候选牌逐张评估】\n" +
+                    "对每张候选牌，必须回答：\n" +
+                    "- 这张牌在当前卡组里的边际价值是什么？\n" +
+                    "- 是一次性收益还是跨回合/持续收益？\n" +
+                    "- 若是条件牌或buff牌，量化其在当前卡组中的实际收益\n" +
+                    "  （例：3点力量 × 11张攻击牌 = 每循环额外约33伤害）\n" +
+                    "- 是否与已记录的用户偏好冲突或契合？\n" +
+                    "【跳过判断】\n" +
+                    "- 三张牌是否都弱于当前卡组平均水平？是→跳过，否→选最优\n" +
+                    "【推荐】[索引]卡牌名：理由（一句话，包含核心量化依据）\n" +
+                    "【跳过奖励】是/否：理由");
+            prompt.append("## 输出格式\n");
             prompt.append("【推荐】[索引]卡牌名：理由\n");
             prompt.append("【跳过奖励】是/否：理由\n");
+        } else if ("shop".equals(scenario)) {
+            prompt.append("## 商店场景分析模板（必须在输出推荐前完整填写）\n" +
+                    "【当前状态】\n" +
+                    "- 当前金币：___\n" +
+                    "- 当前卡组特点：___（流派方向、卡组大小）\n" +
+                    "- 关键遗物：___\n" +
+                    "【商品评估】\n" +
+                    "对每个商品，评估：\n" +
+                    "- 性价比：价格是否合理？（参考：普通卡约50-100金，遗物约150金）\n" +
+                    "- 卡组契合度：是否增强当前流派或补足短板？\n" +
+                    "- 边际收益：购买后对通关的帮助程度\n" +
+                    "【卡牌移除服务】\n" +
+                    "- 卡组是否有需要移除的牌？（诅咒牌、低效打击/防御）\n" +
+                    "- 当前金币是否足够？移除后卡组精简程度如何？\n" +
+                    "【购买建议】\n" +
+                    "- 必买：性价比高且契合卡组\n" +
+                    "- 可选：有一定价值但非必需\n" +
+                    "- 不推荐：性价比低或与卡组不契合\n");
+            prompt.append("## 输出格式\n");
+            prompt.append("【必买】商品名：理由\n");
+            prompt.append("【可选】商品名：理由\n");
+            prompt.append("【不推荐】商品名：理由\n");
+            prompt.append("【移除建议】是/否：理由\n");
+        } else if ("map".equals(scenario)) {
+            prompt.append("## 地图场景分析模板\n" +
+                    "【当前位置】\n" +
+                    "- 当前层数：___\n" +
+                    "- 当前幕数：___\n" +
+                    "【路线规划考虑因素】\n" +
+                    "- 血量状态：血量健康可选精英/事件，血量低优先休息/商店\n" +
+                    "- 卡组强度：卡组强可选精英，卡组弱优先问号事件避免战斗\n" +
+                    "- 金币情况：金币充足可跳过商店，金币少可考虑商店\n" +
+                    "- Boss信息：根据可能Boss准备对策\n" +
+                    "【房间优先级】\n" +
+                    "- 精英：高风险高回报（遗物）\n" +
+                    "- 休息：恢复血量或强化卡牌\n" +
+                    "- 商店：移除卡牌、购买遗物/药水\n" +
+                    "- 问号：随机事件，可能获得遗物/卡牌/金币\n" +
+                    "- 普通：低风险战斗\n");
+            prompt.append("## 输出格式\n");
+            prompt.append("【建议路线】下一步选择：理由\n");
+            prompt.append("【后续规划】优先选择的房间类型\n");
         }
 
         return prompt.toString();
@@ -954,6 +1009,10 @@ public class GameAgent {
                 return "帮我想一下这回合应该怎么出牌";
             case "reward":
                 return "帮我从这些卡牌中选一张";
+            case "shop":
+                return "帮我分析一下商店里值得买的东西";
+            case "map":
+                return "帮我分析一下接下来的路线选择";
             case "event":
                 return "帮我分析一下这个事件应该怎么选择";
             default:
@@ -988,6 +1047,16 @@ public class GameAgent {
                 return "用户偏好";
             case "save_user_preference":
                 return "保存偏好";
+            case "get_piles":
+                return "牌堆信息";
+            case "get_reward_items":
+                return "奖励物品";
+            case "get_map_info":
+                return "地图信息";
+            case "get_boss_info":
+                return "Boss信息";
+            case "get_shop_items":
+                return "商店商品";
             default:
                 return toolId;
         }
@@ -1038,6 +1107,42 @@ public class GameAgent {
 
                 case "save_user_preference":
                     return "已保存";
+
+                case "get_piles":
+                    JsonObject drawPile = data.has("draw_pile") ? data.getAsJsonObject("draw_pile") : null;
+                    JsonObject discardPile = data.has("discard_pile") ? data.getAsJsonObject("discard_pile") : null;
+                    JsonObject exhaustPile = data.has("exhaust_pile") ? data.getAsJsonObject("exhaust_pile") : null;
+                    int draw = drawPile != null && drawPile.has("count") ? drawPile.get("count").getAsInt() : 0;
+                    int discard = discardPile != null && discardPile.has("count") ? discardPile.get("count").getAsInt() : 0;
+                    int exhaust = exhaustPile != null && exhaustPile.has("count") ? exhaustPile.get("count").getAsInt() : 0;
+                    return "抽" + draw + " 弃" + discard + " 消耗" + exhaust;
+
+                case "get_shop_items":
+                    JsonArray cards = data.has("cards") ? data.getAsJsonArray("cards") : null;
+                    JsonArray relics = data.has("relics") ? data.getAsJsonArray("relics") : null;
+                    JsonArray potions = data.has("potions") ? data.getAsJsonArray("potions") : null;
+                    int cardCount = cards != null ? cards.size() : 0;
+                    int relicCount2 = relics != null ? relics.size() : 0;
+                    int potionCount = potions != null ? potions.size() : 0;
+                    int gold = data.has("player_gold") ? data.get("player_gold").getAsInt() : 0;
+                    return cardCount + "卡 " + relicCount2 + "遗物 " + potionCount + "药水 金" + gold;
+
+                case "get_map_info":
+                    int act = data.has("act") ? data.get("act").getAsInt() : 0;
+                    int floor = data.has("current_floor") ? data.get("current_floor").getAsInt() : 0;
+                    return "Act" + act + " 层数" + floor;
+
+                case "get_boss_info":
+                    String bossName = data.has("boss_name") && !data.get("boss_name").isJsonNull()
+                        ? data.get("boss_name").getAsString() : "未知";
+                    return "Boss: " + bossName;
+
+                case "get_reward_items":
+                    JsonArray relicRewards = data.has("relic_rewards") ? data.getAsJsonArray("relic_rewards") : null;
+                    JsonArray potionRewards = data.has("potion_rewards") ? data.getAsJsonArray("potion_rewards") : null;
+                    int relicR = relicRewards != null ? relicRewards.size() : 0;
+                    int potionR = potionRewards != null ? potionRewards.size() : 0;
+                    return relicR + "遗物 " + potionR + "药水";
 
                 default:
                     return "已获取";
